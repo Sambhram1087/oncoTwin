@@ -1,0 +1,74 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 220 25% 97%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --border: 220 20% 88%;
+  --primary: 217 91% 60%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 220 20% 94%;
+  --muted-foreground: 220 10% 45%;
+  --accent: 262 83% 66%;
+  --danger: 0 72% 51%;
+  --success: 152 60% 40%;
+}
+
+.dark {
+  --background: 222 47% 7%;
+  --foreground: 210 40% 96%;
+  --card: 222 40% 10%;
+  --border: 222 25% 18%;
+  --primary: 217 91% 65%;
+  --primary-foreground: 222 47% 7%;
+  --muted: 222 30% 14%;
+  --muted-foreground: 220 15% 65%;
+  --accent: 262 83% 70%;
+  --danger: 0 72% 60%;
+  --success: 152 55% 50%;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+.glass {
+  background: hsl(var(--card) / 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid hsl(var(--border) / 0.6);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted)) 25%,
+    hsl(var(--border)) 37%,
+    hsl(var(--muted)) 63%
+  );
+  background-size: 400% 100%;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+}

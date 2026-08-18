@@ -1,0 +1,17 @@
+# Backend
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/oncotwin.db
+backend/test_oncotwin.db
+backend/storage/
+backend/sample_data/
+backend/.env
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/.env.local
+
+# OS
+.DS_Store
