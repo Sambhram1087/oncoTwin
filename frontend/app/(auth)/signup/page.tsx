@@ -8,10 +8,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { api, ApiError } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
-import { Brain } from "lucide-react";
+import { Brain, ArrowRight, AlertCircle, Lock, Mail, User, CheckCircle2 } from "lucide-react";
 
 const schema = z.object({
   full_name: z.string().min(1, "Name is required"),
@@ -47,58 +46,149 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-4">
-      <Card className="w-full max-w-md animate-fade-in">
-        <CardContent className="pt-8 pb-8">
-          <div className="flex items-center gap-2 justify-center mb-6">
-            <Brain className="h-6 w-6 text-primary" />
-            <span className="font-semibold text-lg">OncoTwin</span>
+    <main className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Background orbs */}
+      <div className="mesh-orb w-[500px] h-[500px] bg-secondary -top-20 -right-20 opacity-10" />
+      <div className="mesh-orb w-[400px] h-[400px] bg-primary -bottom-20 -left-20 opacity-8" />
+
+      {/* Grid pattern */}
+      <div
+        className="absolute inset-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `linear-gradient(hsl(var(--primary)) 1px, transparent 1px),
+            linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)`,
+          backgroundSize: "50px 50px",
+        }}
+      />
+
+      <div className="relative w-full max-w-md animate-fade-in-up">
+        {/* Card */}
+        <div className="glass-strong rounded-3xl p-8 shadow-float border border-border">
+          {/* Logo */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-secondary to-primary flex items-center justify-center shadow-glow mb-4">
+              <Brain className="h-7 w-7 text-background" />
+            </div>
+            <h1 className="text-2xl font-bold mb-1">Create your account</h1>
+            <p className="text-sm text-muted-foreground text-center">
+              Start tracking patients in minutes
+            </p>
           </div>
-          <h1 className="text-2xl font-bold text-center mb-1">Create your account</h1>
-          <p className="text-sm text-muted-foreground text-center mb-6">
-            Start tracking patients in minutes
-          </p>
+
+          {/* Benefits */}
+          <div className="grid grid-cols-2 gap-2 mb-6">
+            {["Free to start", "No setup required", "HIPAA-ready infra", "Instant AI analysis"].map((b) => (
+              <div key={b} className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 className="h-3 w-3 text-accent flex-shrink-0" />
+                {b}
+              </div>
+            ))}
+          </div>
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
             <div>
-              <label className="text-sm font-medium mb-1 block">Full name</label>
-              <Input placeholder="Dr. Jane Smith" {...register("full_name")} />
+              <label className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                <User className="h-3.5 w-3.5 text-muted-foreground" />
+                Full name
+              </label>
+              <Input
+                placeholder="Dr. Jane Smith"
+                autoComplete="name"
+                {...register("full_name")}
+              />
               {errors.full_name && (
-                <p className="text-danger text-xs mt-1">{errors.full_name.message}</p>
+                <p className="text-danger text-xs mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.full_name.message}
+                </p>
               )}
             </div>
+
             <div>
-              <label className="text-sm font-medium mb-1 block">Email</label>
-              <Input type="email" placeholder="you@hospital.org" {...register("email")} />
+              <label className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                <Mail className="h-3.5 w-3.5 text-muted-foreground" />
+                Work email
+              </label>
+              <Input
+                type="email"
+                placeholder="you@hospital.org"
+                autoComplete="email"
+                {...register("email")}
+              />
               {errors.email && (
-                <p className="text-danger text-xs mt-1">{errors.email.message}</p>
+                <p className="text-danger text-xs mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.email.message}
+                </p>
               )}
             </div>
+
             <div>
-              <label className="text-sm font-medium mb-1 block">Password</label>
-              <Input type="password" placeholder="••••••••" {...register("password")} />
+              <label className="text-sm font-medium mb-2 flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                Password
+              </label>
+              <Input
+                type="password"
+                placeholder="Min. 8 characters"
+                autoComplete="new-password"
+                {...register("password")}
+              />
               {errors.password && (
-                <p className="text-danger text-xs mt-1">{errors.password.message}</p>
+                <p className="text-danger text-xs mt-1.5 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {errors.password.message}
+                </p>
               )}
             </div>
+
             {serverError && (
-              <p className="text-danger text-sm bg-danger/10 rounded-lg px-3 py-2">
+              <div className="flex items-start gap-2.5 text-danger text-sm bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                 {serverError}
-              </p>
+              </div>
             )}
-            <Button type="submit" className="w-full" size="lg" disabled={loading}>
-              {loading ? "Creating account..." : "Create account"}
+
+            <Button
+              type="submit"
+              className="w-full h-12 rounded-xl mt-2"
+              size="lg"
+              disabled={loading}
+            >
+              {loading ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                  Creating account...
+                </span>
+              ) : (
+                <span className="flex items-center gap-2">
+                  Create account
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+              )}
             </Button>
           </form>
 
-          <p className="text-sm text-center text-muted-foreground mt-6">
-            Already have an account?{" "}
-            <Link href="/login" className="text-primary font-medium">
-              Log in
-            </Link>
-          </p>
-        </CardContent>
-      </Card>
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border/50" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-card px-3 text-muted-foreground">Already have an account?</span>
+            </div>
+          </div>
+
+          <Link href="/login">
+            <Button variant="secondary" className="w-full h-11 rounded-xl">
+              Sign in instead
+            </Button>
+          </Link>
+        </div>
+
+        <p className="text-center text-xs text-muted-foreground mt-4">
+          By creating an account you agree to our Terms of Service &amp; Privacy Policy.
+        </p>
+      </div>
     </main>
   );
 }
