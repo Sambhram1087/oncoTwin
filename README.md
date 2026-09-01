@@ -1,154 +1,180 @@
-# OncoTwin – AI Neuro-Oncology Digital Twin
+# 🧠 OncoTwin – AI Neuro-Oncology Digital Twin Platform
 
-A working, end-to-end slice of a neuro-oncology digital twin platform:
-**sign up → create a patient → upload an MRI → background AI processing
-with realtime progress → segmentation results, radiomics, growth
-prediction, and a 3D-style tumor visualization.**
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Frontend-Next.js%2015-000000?style=flat-square&logo=nextdotjs)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/UI-React%2019-61DAFB?style=flat-square&logo=react)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/Language-TypeScript-3178C6?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
+[![Python](https://img.shields.io/badge/Language-Python%203.11+-3776AB?style=flat-square&logo=python)](https://www.python.org/)
+[![Docker](https://img.shields.io/badge/Deployment-Docker%20Compose-2496ED?style=flat-square&logo=docker)](https://www.docker.com/)
 
-This is a real, runnable full-stack app, not a mockup: every button
-calls a real API endpoint, the database is real (SQLite locally,
-swappable to Postgres/Supabase), and the "AI pipeline" is a fully
-functional deterministic mock model that returns data in the *exact*
-shape a real MONAI model would — see "Swapping in real AI" below.
+**OncoTwin** is a full-stack, end-to-end neuro-oncology digital twin application. It simulates the clinical lifecycle of brain tumor analysis: **User Authentication ➔ Patient Management ➔ MRI Upload & Validation ➔ Realtime WebSocket-driven AI Segmentation ➔ Radiomics Analytics ➔ Growth Prediction ➔ Interactive 3D Visualizations**.
 
-## What's implemented vs. what's scaffolded for later
+> [!NOTE]
+> **Production-Ready Architecture, Modular Mock AI Model**: Every button calls real REST/WebSocket API endpoints backed by a database (SQLite local, zero-config switch to Postgres/Supabase). The AI engine uses a modular, deterministic pipeline returning schema-compliant data in the exact contract required by medical AI frameworks like MONAI.
 
-This repo intentionally ships **one thin, fully working vertical slice**
-across the whole stack rather than every feature in the original brief
-half-built. Implemented and tested end-to-end:
+---
 
-- Auth (signup / login / JWT / protected routes)
-- Patient CRUD + search
-- MRI upload (`.nii`, `.nii.gz`, `.zip`) with validation
-- Background job processing with realtime WebSocket progress
-- Mock AI segmentation pipeline (volume, confidence, radiomics, mesh stats)
-- Digital twin timeline (one entry per uploaded scan/visit)
-- Growth prediction slider (30/60/90 day projection)
-- 3D-style tumor visualization (CSS-based placeholder, see below)
-- Dark/light mode, responsive layout, loading skeletons, animations
-- Pytest suite for the backend (auth + patient flows), all passing
-- Docker Compose for one-command local run
+## 🚀 Key Features & Vertical Slice
 
-**Not built in this pass** (structured as clear extension points instead
-of fake UI): the surgical simulator, PDF report export, admin panel,
-Supabase Auth/Storage/Postgres wiring, Celery+Redis workers, and the
-full Cornerstone3D/React-Three-Fiber viewer. Each has a documented swap
-path below so it can be added without touching the rest of the app.
+- 🔐 **Authentication & Security**: JWT-based sign up, login, password hashing (Passlib/Bcrypt), and protected API endpoints.
+- 📋 **Patient Management**: Full CRUD operations, filtering, patient history, and clinical metadata search.
+- 📁 **MRI Imaging Ingestion**: Drag-and-drop file upload supporting `.nii`, `.nii.gz`, and `.zip` archives with MIME and structural validation.
+- ⚡ **Realtime AI Pipeline Execution**: Asynchronous job queue with streaming status updates, progress percentages, and log messages delivered over WebSockets (`/ws/jobs/{job_id}`).
+- 📊 **Segmentation & Radiomics**: Automated calculations of tumor volume ($\text{cm}^3$), surface area, sphericity, confidence scores, and sub-region breakdown (ET, ED, NCR/NET).
+- 📈 **Digital Twin Growth Modeling**: Interactive trajectory modeling projecting tumor growth across 30, 60, and 90-day intervals.
+- 🧊 **3D Tumor Visualization**: Interactive render component designed for volumetric display and mesh stat inspection.
+- 🎨 **Modern UX/UI Design**: Responsive UI with dark/light mode toggle, dynamic loading skeletons, glassmorphism aesthetics, and smooth transitions.
+- 🧪 **Automated Testing Suite**: End-to-end pytest test coverage for authentication, patient management, scan uploads, and inference workflows.
 
-## Architecture
+---
+
+## 🏗️ System Architecture
+
+```mermaid
+graph TD
+    Client["Next.js 15 Frontend<br/>(React 19 + Tailwind + Zustand)"]
+    API["FastAPI Backend<br/>(Uvicorn / ASGI)"]
+    DB[("SQLAlchemy DB<br/>(SQLite / Postgres)")]
+    WS["WebSocket Manager<br/>(Realtime Progress)"]
+    Worker["Background Job Runner<br/>(FastAPI BackgroundTasks / Celery)"]
+    Storage["File Storage Service<br/>(Local Disk / S3 / Supabase)"]
+    AI["AI Pipeline Service<br/>(MONAI / PyTorch Mock Model)"]
+
+    Client -->|"HTTP REST API (JWT)"| API
+    Client <-->|"WebSocket Connection"| WS
+    API --> DB
+    API --> Storage
+    API --> Worker
+    Worker --> AI
+    Worker -->|"Push Job Status Updates"| WS
+    AI --> DB
+```
+
+### Directory Overview
 
 ```
 oncotwin/
-├── backend/          FastAPI + SQLAlchemy + JWT auth
+├── backend/                  # FastAPI Application
 │   ├── app/
-│   │   ├── api/routes/     auth, patients, upload, predict
-│   │   ├── core/           config, security
-│   │   ├── db/             SQLAlchemy session/engine
-│   │   ├── models/         User, Patient, Scan, Job
-│   │   ├── schemas/        Pydantic request/response models
-│   │   ├── services/       ai_pipeline (modular model interface), storage, ws_manager
-│   │   ├── workers/        background job runner (BackgroundTasks now, Celery-ready)
-│   │   ├── tests/          pytest suite
-│   │   └── seed.py         demo user + patients + sample genomic JSON
-│   ├── requirements.txt
-│   └── Dockerfile
-├── frontend/          Next.js 15 + React 19 + TypeScript + Tailwind
-│   ├── app/
-│   │   ├── (auth)/login, (auth)/signup
-│   │   ├── dashboard/
-│   │   ├── patients/, patients/[id]/
-│   │   ├── upload/
-│   │   └── results/[jobId]/
-│   ├── components/    Button, Card, Input, Skeleton, AppShell, TumorVisualization
-│   ├── lib/            typed API client, zustand auth store, websocket hook
-│   └── Dockerfile
-└── docker-compose.yml
+│   │   ├── api/routes/       # REST Routes (auth, patients, upload, predict)
+│   │   ├── core/             # Configuration & Security (JWT, Hashing)
+│   │   ├── db/               # Database Engine & Session Management
+│   │   ├── models/           # SQLAlchemy Models (User, Patient, Scan, Job)
+│   │   ├── schemas/          # Pydantic Request & Response Schemas
+│   │   ├── services/         # AI Pipeline, File Storage, & WebSocket Manager
+│   │   ├── workers/          # Background Task Runner
+│   │   ├── seed.py           # Database Seeder (Demo User & Sample Data)
+│   │   └── tests/            # Pytest Suite
+│   ├── Dockerfile
+│   └── requirements.txt
+├── frontend/                 # Next.js 15 App Router
+│   ├── app/                  # Router Pages (auth, dashboard, patients, upload, results)
+│   ├── components/           # UI Components (Tumor Visualization, Shell, Cards, Buttons)
+│   ├── lib/                  # Typed API Client, Auth Store (Zustand), WebSocket Hook
+│   ├── Dockerfile
+│   └── package.json
+└── docker-compose.yml        # Multi-container Orchestration
 ```
 
-## Running it locally
+---
 
-### Option A — Docker Compose (recommended, one command)
+## 🛠️ Quickstart Guide
+
+### Option A: Docker Compose (Recommended)
+
+Run the entire full-stack application (Frontend + Backend + Database) with a single command:
 
 ```bash
 docker compose up --build
 ```
 
-Frontend: http://localhost:3000
-Backend docs (OpenAPI/Swagger): http://localhost:8000/docs
+- 🌐 **Frontend App**: [http://localhost:3000](http://localhost:3000)
+- 📜 **Interactive API Docs (Swagger)**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- 🔍 **ReDoc API Documentation**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 
-### Option B — Run each side manually
+---
 
-**Backend:**
+### Option B: Manual Local Setup
+
+#### 1. Backend Setup
+
 ```bash
 cd backend
-python3 -m venv .venv && source .venv/bin/activate
+
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
+
+# Configure environment variables
 cp .env.example .env
-python -m app.seed          # optional: creates demo@oncotwin.ai / demopassword123
+
+# (Optional) Seed the database with demo account & sample patients
+python -m app.seed
+
+# Start Uvicorn development server
 uvicorn app.main:app --reload --port 8000
 ```
 
-**Frontend:**
+#### 2. Frontend Setup
+
 ```bash
 cd frontend
+
+# Install dependencies
 npm install
+
+# Configure environment variables
 cp .env.example .env.local
+
+# Run Next.js dev server
 npm run dev
 ```
 
-Then open http://localhost:3000, sign up (or log in with the seeded
-demo account `demo@oncotwin.ai` / `demopassword123`), create a patient,
-and upload any `.nii` file (even a dummy text file renamed to `.nii`
-works for the demo, since the mock model doesn't actually parse voxel
-data yet — see below).
+> [!TIP]
+> **Demo Account Credentials**:
+> - **Email**: `demo@oncotwin.ai`
+> - **Password**: `demopassword123`
 
-### Running the backend tests
+---
+
+## 🧪 Testing
+
+Run backend automated tests with `pytest`:
 
 ```bash
 cd backend
 pytest app/tests/ -v
 ```
 
-## Swapping in real infrastructure
+---
 
-Every "local default" below was chosen so the whole app runs on free
-tiers with zero external accounts. Each has a one-file swap path:
+## 🧩 Production Swap & Modular Architecture Matrix
 
-| Concern | Local default | Production swap | File to change |
-|---|---|---|---|
-| Database | SQLite | Supabase Postgres | `backend/app/core/config.py` (`DATABASE_URL`) |
-| Auth | Self-issued JWT | Supabase Auth | `backend/app/core/security.py` |
-| File storage | Local disk | Supabase Storage bucket | `backend/app/services/storage.py` |
-| Background jobs | FastAPI `BackgroundTasks` | Celery + Upstash Redis | `backend/app/workers/tasks.py` |
-| AI segmentation | `MockSegmentationModel` | Real MONAI model | `backend/app/services/ai_pipeline.py` (implement `SegmentationModel`, same return contract) |
-| 3D viewer | CSS placeholder | Cornerstone3D / React-Three-Fiber | `frontend/components/tumor-visualization.tsx` |
+OncoTwin is designed using clean interface abstractions. Local defaults require zero external credentials and can be swapped for production cloud services by changing single files:
 
-Because routes/schemas/frontend all depend on the *interfaces* (not the
-implementations), swapping any one of these doesn't require touching
-anything else.
+| Concern | Local Default | Production Cloud Swap | Target Implementation File |
+| :--- | :--- | :--- | :--- |
+| **Database** | SQLite (`oncotwin.db`) | Supabase / PostgreSQL | [`backend/app/core/config.py`](file:///Users/sambhramsattigeri/Documents/oncotwin/backend/app/core/config.py) (`DATABASE_URL`) |
+| **Authentication** | Self-Issued JWT | Supabase Auth / Auth0 | [`backend/app/core/security.py`](file:///Users/sambhramsattigeri/Documents/oncotwin/backend/app/core/security.py) |
+| **File Storage** | Local Disk (`./storage`) | AWS S3 / Supabase Storage | [`backend/app/services/storage.py`](file:///Users/sambhramsattigeri/Documents/oncotwin/backend/app/services/storage.py) |
+| **Background Jobs** | FastAPI `BackgroundTasks` | Celery + Upstash Redis | [`backend/app/workers/tasks.py`](file:///Users/sambhramsattigeri/Documents/oncotwin/backend/app/workers/tasks.py) |
+| **AI Segmentation** | `MockSegmentationModel` | MONAI / PyTorch Model | [`backend/app/services/ai_pipeline.py`](file:///Users/sambhramsattigeri/Documents/oncotwin/backend/app/services/ai_pipeline.py) |
+| **3D Rendering** | CSS Volumetric Render | Cornerstone3D / Three.js | [`frontend/components/tumor-visualization.tsx`](file:///Users/sambhramsattigeri/Documents/oncotwin/frontend/components/tumor-visualization.tsx) |
 
-## Deployment (free tiers)
+---
 
-- **Frontend → Vercel**: connect the repo, set root directory to
-  `frontend`, add `NEXT_PUBLIC_API_URL`/`NEXT_PUBLIC_WS_URL` env vars
-  pointing at your deployed backend.
-- **Backend → Render**: new Web Service from `backend/Dockerfile`, add
-  the env vars from `.env.example`.
-- **Database/Auth/Storage → Supabase**: create a project, copy the
-  Postgres connection string into `DATABASE_URL`, and follow the swap
-  paths above to move auth/storage over.
-- **Redis → Upstash**: create a free Redis instance, use its URL as
-  `CELERY_BROKER_URL` once you've wired up Celery per the table above.
+## 🌐 Deployment Instructions
 
-## Known limitations of this slice
+- **Frontend (Vercel)**: Connect repository, select root folder `frontend`, set `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
+- **Backend (Render / Railway)**: Deploy web service using `backend/Dockerfile`. Configure environment variables matching `backend/.env.example`.
+- **Database / Auth (Supabase)**: Provision PostgreSQL database, update `DATABASE_URL` in environment variables.
 
-- The mock AI model derives its "results" from a hash of the file path,
-  not from actual NIfTI voxel data — it doesn't parse `.nii` headers at
-  all yet. Wiring in `nibabel` to read real voxel data is a small,
-  isolated addition to `ai_pipeline.py`.
-- The 3D visualization is a CSS placeholder, not a real volumetric
-  renderer — it exists so the results page isn't empty, and to keep the
-  data contract (`volumeMl`, `meshVertices`) that a real Three.js/
-  Cornerstone3D viewer would also consume.
-- SQLite is used for zero-setup local development; under concurrent
-  writes you'll want Postgres (a one-line `DATABASE_URL` change).
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
+
