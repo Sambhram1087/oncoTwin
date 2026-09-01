@@ -30,7 +30,15 @@ async function request<T>(
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  const res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  } catch (err: any) {
+    throw new ApiError(
+      0,
+      `Unable to connect to backend server (${API_BASE_URL}). Please verify that the backend API server is running.`
+    );
+  }
 
   if (!res.ok) {
     let detail = res.statusText;

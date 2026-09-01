@@ -47,7 +47,11 @@ function UploadForm() {
       router.push(`/results/${job.id}`);
     },
     onError: (err) => {
-      setError(err instanceof ApiError ? err.message : "Upload failed");
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : (err as Error)?.message || "Upload failed"
+      );
     },
   });
 

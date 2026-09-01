@@ -1,5 +1,6 @@
 import os
 import sys
+import io
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -17,7 +18,10 @@ client = TestClient(app)
 def cleanup():
     yield
     if os.path.exists("./test_oncotwin.db"):
-        os.remove("./test_oncotwin.db")
+        try:
+            os.remove("./test_oncotwin.db")
+        except OSError:
+            pass
 
 
 def _signup_and_login(email="doctor@example.com", password="supersecret123"):
@@ -87,3 +91,55 @@ def test_patient_crud_flow():
 def test_patients_require_auth():
     res = client.get("/api/v1/patients")
     assert res.status_code == 401
+
+
+def test_scan_upload_and_job_flow():
+    token = _signup_and_login("upload_test@example.com")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 1. Create a patient
+    p_res = client.post(
+        "/api/v1/patients",
+        json={"mrn": "MRN-UPLOAD-01", "full_name": "Upload Patient", "sex": "M"},
+        headers=headers,
+    )
+    assert p_res.status_code == 201
+    patient_id = p_res.json()["id"]
+
+    # 2. Upload scan
+    fake_nii_content = b"Simulated NIfTI header and data"
+    file_obj = io.BytesIO(fake_nii_content)
+
+    upload_res = client.post(
+        f"/api/v1/patients/{patient_id}/scans",
+        headers=headers,
+        data={"modality": "FLAIR", "visit_label": "Baseline"},
+        files={"file": ("test_brain.nii", file_obj, "application/octet-stream")},
+    )
+    assert upload_res.status_code == 201
+    job = upload_res.json()
+    assert job["id"] is not None
+    job_id = job["id"]
+
+    # 3. Get job details
+    job_res = client.get(f"/api/v1/jobs/{job_id}", headers=headers)
+    assert job_res.status_code == 200
+    assert job_res.json()["scan_id"] is not None
+
+    # 4. List scans for patient
+    scans_res = client.get(f"/api/v1/patients/{patient_id}/scans", headers=headers)
+    assert scans_res.status_code == 200
+    scans = scans_res.json()
+    assert len(scans) == 1
+    assert scans[0]["original_filename"] == "test_brain.nii"
+
+    # 5. Invalid file type validation
+    invalid_file = io.BytesIO(b"text data")
+    invalid_res = client.post(
+        f"/api/v1/patients/{patient_id}/scans",
+        headers=headers,
+        data={"modality": "T1"},
+        files={"file": ("report.pdf", invalid_file, "application/pdf")},
+    )
+    assert invalid_res.status_code == 400
+    assert "Unsupported file type" in invalid_res.json()["detail"]
