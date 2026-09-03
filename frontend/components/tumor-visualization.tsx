@@ -30,17 +30,15 @@ export function TumorVisualization({
     <div className="flex flex-col items-center gap-4">
       {/* Viewport */}
       <div
-        className="relative flex items-center justify-center rounded-2xl overflow-hidden border border-border"
+        className="relative flex items-center justify-center rounded-2xl overflow-hidden border border-border bg-gradient-to-b from-card-hover to-background"
         style={{
           width: "100%",
           height: 280,
-          background:
-            "radial-gradient(ellipse at 50% 30%, hsl(222 47% 10%) 0%, hsl(222 47% 5%) 100%)",
         }}
       >
         {/* Grid overlay */}
         <div
-          className="absolute inset-0 opacity-[0.04]"
+          className="absolute inset-0 opacity-[0.05]"
           style={{
             backgroundImage: `linear-gradient(hsl(var(--primary)) 1px, transparent 1px),
               linear-gradient(90deg, hsl(var(--primary)) 1px, transparent 1px)`,
@@ -70,7 +68,7 @@ export function TumorVisualization({
             height: size,
             background: wireframe
               ? "repeating-conic-gradient(hsl(var(--primary)) 0deg 8deg, transparent 8deg 20deg)"
-              : `radial-gradient(circle at 35% 30%, hsl(var(--accent)) 0%, hsl(var(--primary)) 45%, hsl(var(--secondary) / 0.8) 80%, hsl(222 47% 12%) 100%)`,
+              : `radial-gradient(circle at 35% 30%, hsl(var(--accent)) 0%, hsl(var(--primary)) 45%, hsl(var(--secondary) / 0.8) 80%, hsl(var(--card)) 100%)`,
             opacity: opacity / 100,
             boxShadow: `0 0 40px -8px hsl(var(--primary) / 0.7),
               0 0 80px -20px hsl(var(--secondary) / 0.4),

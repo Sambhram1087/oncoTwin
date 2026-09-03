@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api, ApiError } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Brain, ArrowRight, AlertCircle, Lock, Mail } from "lucide-react";
 
 const schema = z.object({
@@ -46,6 +47,11 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-screen flex items-center justify-center px-4 relative overflow-hidden">
+      {/* Top right theme toggle */}
+      <div className="absolute top-6 right-6 z-50">
+        <ThemeToggle />
+      </div>
+
       {/* Background orbs */}
       <div className="mesh-orb w-[500px] h-[500px] bg-primary -top-20 -left-20 opacity-10" />
       <div className="mesh-orb w-[400px] h-[400px] bg-secondary -bottom-20 -right-20 opacity-8" />
@@ -66,7 +72,7 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="flex flex-col items-center mb-8">
             <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow mb-4">
-              <Brain className="h-7 w-7 text-background" />
+              <Brain className="h-7 w-7 text-white" />
             </div>
             <h1 className="text-2xl font-bold mb-1">Welcome back</h1>
             <p className="text-sm text-muted-foreground text-center">

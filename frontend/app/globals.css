@@ -4,7 +4,45 @@
 
 /* ─── Design tokens ───────────────────────────────────────────────── */
 :root {
-  /* Deep navy/teal dark palette (default) */
+  /* Light palette (default / system light) */
+  --background: 210 40% 98%;
+  --background-2: 214 32% 93%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-hover: 210 40% 96%;
+  --border: 214 32% 88%;
+  --border-subtle: 214 32% 93%;
+
+  --primary: 199 89% 40%;          /* crisp clinical cyan-blue */
+  --primary-foreground: 0 0% 100%;
+  --primary-glow: 199 89% 40%;
+
+  --secondary: 262 70% 55%;        /* vibrant royal purple */
+  --secondary-foreground: 0 0% 100%;
+
+  --muted: 214 32% 93%;
+  --muted-foreground: 215 16% 45%;
+
+  --accent: 168 76% 38%;           /* emerald teal */
+  --accent-foreground: 0 0% 100%;
+
+  --danger: 0 72% 55%;
+  --success: 152 60% 40%;
+  --warning: 38 92% 45%;
+
+  /* Gradient mesh colors */
+  --mesh-1: 199 89% 40%;
+  --mesh-2: 262 70% 55%;
+  --mesh-3: 168 76% 38%;
+
+  /* Glass backdrop opacity */
+  --glass-bg: 0 0% 100%;
+  --glass-opacity: 0.75;
+  --glass-strong-opacity: 0.9;
+}
+
+.dark {
+  /* Deep navy/teal dark palette */
   --background: 222 47% 5%;
   --background-2: 220 40% 8%;
   --foreground: 210 40% 96%;
@@ -34,6 +72,11 @@
   --mesh-1: 195 90% 48%;
   --mesh-2: 258 80% 65%;
   --mesh-3: 168 80% 50%;
+
+  /* Glass backdrop opacity */
+  --glass-bg: 220 35% 10%;
+  --glass-opacity: 0.7;
+  --glass-strong-opacity: 0.85;
 }
 
 /* ─── Base styles ─────────────────────────────────────────────────── */
@@ -52,6 +95,7 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.3s ease, color 0.3s ease;
   /* Subtle grid noise background */
   background-image:
     radial-gradient(ellipse 80% 50% at 50% -20%, hsl(var(--primary) / 0.08) 0%, transparent 60%),
@@ -76,14 +120,14 @@ body {
 
 /* ─── Glass morphism ──────────────────────────────────────────────── */
 .glass {
-  background: hsl(var(--card) / 0.7);
+  background: hsl(var(--glass-bg) / var(--glass-opacity));
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
   border: 1px solid hsl(var(--border) / 0.6);
 }
 
 .glass-strong {
-  background: hsl(var(--card) / 0.85);
+  background: hsl(var(--glass-bg) / var(--glass-strong-opacity));
   backdrop-filter: blur(32px) saturate(180%);
   -webkit-backdrop-filter: blur(32px) saturate(180%);
   border: 1px solid hsl(var(--border));
@@ -106,12 +150,12 @@ body {
 
 /* ─── Glow effects ────────────────────────────────────────────────── */
 .glow-primary {
-  box-shadow: 0 0 30px -5px hsl(var(--primary) / 0.5),
-              0 0 60px -20px hsl(var(--primary) / 0.3);
+  box-shadow: 0 0 30px -5px hsl(var(--primary) / 0.4),
+              0 0 60px -20px hsl(var(--primary) / 0.2);
 }
 
 .glow-text {
-  text-shadow: 0 0 20px hsl(var(--primary) / 0.6);
+  text-shadow: 0 0 20px hsl(var(--primary) / 0.5);
 }
 
 /* ─── Gradient borders ────────────────────────────────────────────── */
@@ -126,7 +170,7 @@ body {
   inset: -1px;
   border-radius: inherit;
   padding: 1px;
-  background: linear-gradient(135deg, hsl(var(--primary) / 0.5), hsl(var(--secondary) / 0.3), transparent);
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(var(--secondary) / 0.25), transparent);
   -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
   -webkit-mask-composite: xor;
@@ -168,8 +212,8 @@ body {
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.4); }
-  50% { box-shadow: 0 0 40px -5px hsl(var(--primary) / 0.7); }
+  0%, 100% { box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.35); }
+  50% { box-shadow: 0 0 40px -5px hsl(var(--primary) / 0.6); }
 }
 
 @keyframes orbit {

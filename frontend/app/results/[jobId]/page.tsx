@@ -34,8 +34,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
-// Custom tooltip for dark theme
-const DarkTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+// Custom tooltip for theme-adaptive chart
+const ChartTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="glass-strong rounded-xl px-3 py-2 text-xs border border-border shadow-float">
@@ -296,11 +296,11 @@ export default function ResultsPage({
                       type="category"
                       dataKey="name"
                       width={110}
-                      tick={{ fontSize: 11, fill: "hsl(220 15% 55%)" }}
+                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                       axisLine={false}
                       tickLine={false}
                     />
-                    <Tooltip content={<DarkTooltip />} />
+                    <Tooltip content={<ChartTooltip />} />
                     <Bar
                       dataKey="value"
                       fill="url(#barGradient)"
@@ -368,18 +368,18 @@ export default function ResultsPage({
                   <XAxis
                     dataKey="day"
                     tickFormatter={(d) => `${d}d`}
-                    tick={{ fontSize: 11, fill: "hsl(220 15% 55%)" }}
+                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
                     unit=" mL"
                     width={70}
-                    tick={{ fontSize: 11, fill: "hsl(220 15% 55%)" }}
+                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
                     axisLine={false}
                     tickLine={false}
                   />
-                  <Tooltip content={<DarkTooltip />} />
+                  <Tooltip content={<ChartTooltip />} />
                   <Line
                     type="monotone"
                     dataKey="volume"

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Brain, Activity, Shield, Sparkles, ChevronRight, Zap, Lock, BarChart3 } from "lucide-react";
 
 export default function HomePage() {
@@ -9,22 +10,25 @@ export default function HomePage() {
       <nav className="fixed top-0 inset-x-0 z-50 flex items-center justify-between px-6 py-4 max-w-7xl mx-auto">
         <div className="glass rounded-2xl px-4 py-2.5 flex items-center gap-2.5 font-semibold text-base">
           <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-sm">
-            <Brain className="h-4 w-4 text-background" />
+            <Brain className="h-4 w-4 text-white" />
           </div>
           <span className="gradient-text">OncoTwin</span>
         </div>
-        <div className="glass rounded-2xl flex items-center gap-1 p-1">
-          <Link href="/login">
-            <Button variant="ghost" size="sm" className="rounded-xl text-muted-foreground hover:text-foreground">
-              Log in
-            </Button>
-          </Link>
-          <Link href="/signup">
-            <Button size="sm" className="rounded-xl">
-              Get started
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-          </Link>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <div className="glass rounded-2xl flex items-center gap-1 p-1">
+            <Link href="/login">
+              <Button variant="ghost" size="sm" className="rounded-xl text-muted-foreground hover:text-foreground">
+                Log in
+              </Button>
+            </Link>
+            <Link href="/signup">
+              <Button size="sm" className="rounded-xl">
+                Get started
+                <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </nav>
 

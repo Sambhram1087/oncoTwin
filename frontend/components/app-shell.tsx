@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth-store";
+import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Brain,
   LayoutDashboard,
@@ -25,18 +26,44 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuthStore();
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="min-h-screen flex flex-col md:flex-row bg-background">
+      {/* ── Mobile top bar ────────────────────────────────────────── */}
+      <div className="flex md:hidden items-center justify-between px-4 py-3 border-b border-border/50 glass-strong sticky top-0 z-40">
+        <div className="flex items-center gap-2.5">
+          <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-sm">
+            <Brain className="h-4 w-4 text-white" />
+          </div>
+          <span className="font-bold text-sm gradient-text">OncoTwin</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <button
+            onClick={() => {
+              logout();
+              router.push("/login");
+            }}
+            className="p-2 rounded-xl text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors"
+            title="Sign out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
       {/* ── Sidebar ────────────────────────────────────────────────── */}
       <aside className="w-64 hidden md:flex flex-col h-screen sticky top-0 border-r border-border/50 glass-strong">
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-5 py-5 border-b border-border/50">
-          <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-sm flex-shrink-0">
-            <Brain className="h-4.5 w-4.5 text-background" />
+        {/* Logo & Theme Toggle */}
+        <div className="flex items-center justify-between px-5 py-5 border-b border-border/50">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-sm flex-shrink-0">
+              <Brain className="h-4.5 w-4.5 text-white" />
+            </div>
+            <div>
+              <span className="font-bold text-base gradient-text">OncoTwin</span>
+              <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Clinical AI Platform</p>
+            </div>
           </div>
-          <div>
-            <span className="font-bold text-base gradient-text">OncoTwin</span>
-            <p className="text-[10px] text-muted-foreground leading-none mt-0.5">Clinical AI Platform</p>
-          </div>
+          <ThemeToggle />
         </div>
 
         {/* Nav section label */}
