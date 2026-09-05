@@ -4,13 +4,13 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
-import { api, Patient, ScanInfo } from "@/lib/api";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { api, Patient, Scan, Job } from "@/lib/api";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
-  User2, Calendar, FileScan, ArrowLeft, Clock, 
-  Activity, CheckCircle2, AlertCircle, Eye, ArrowRight 
+  User, Calendar, FileScan, ArrowLeft, Clock, 
+  Activity, AlertCircle, Eye
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -18,28 +18,53 @@ export default function PatientDetailPage() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
   const [patient, setPatient] = useState<Patient | null>(null);
-  const [scans, setScans] = useState<ScanInfo[]>([]);
+  const [scans, setScans] = useState<(Scan & { job?: Job })[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const patientId = parseInt(id, 10);
+    if (isNaN(patientId)) {
+      router.push("/patients");
+      return;
+    }
+
     Promise.all([
-      api.patients.get(id).catch(() => null),
-      api.scans.list(id).catch(() => []),
-    ]).then(([p, s]) => {
-      if (!p) router.push("/patients");
+      api.patients.get(patientId).catch(() => null),
+      api.scans.list(patientId).catch(() => []),
+    ]).then(async ([p, s]) => {
+      if (!p) {
+        router.push("/patients");
+        return;
+      }
       setPatient(p);
-      // Sort scans by date descending (newest first)
-      setScans(s.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      
+      // Fetch job status for each scan
+      const scansWithJobs = await Promise.all(
+        s.map(async (scan) => {
+          if (scan.job_id) {
+            try {
+              const job = await api.jobs.get(scan.job_id);
+              return { ...scan, job };
+            } catch {
+              return scan;
+            }
+          }
+          return scan;
+        })
+      );
+      
+      // Sort scans by date descending
+      setScans(scansWithJobs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
       setLoading(false);
     });
   }, [id, router]);
 
   // Volume trend logic (simplified sparkline)
-  const completedScans = scans.filter(s => s.status === 'COMPLETED' && s.tumor_volume_ml !== undefined).reverse(); // oldest first for trend
+  const completedScans = scans.filter(s => s.job?.status === 'complete' && s.job?.result?.tumor_volume_ml !== undefined).reverse(); // oldest first for trend
   const hasTrend = completedScans.length > 1;
-  const latestVol = hasTrend ? completedScans[completedScans.length - 1].tumor_volume_ml : null;
-  const prevVol = hasTrend ? completedScans[completedScans.length - 2].tumor_volume_ml : null;
-  const volDiff = hasTrend && latestVol !== null && prevVol !== null ? latestVol - prevVol : 0;
+  const latestVol = hasTrend ? completedScans[completedScans.length - 1].job?.result?.tumor_volume_ml : null;
+  const prevVol = hasTrend ? completedScans[completedScans.length - 2].job?.result?.tumor_volume_ml : null;
+  const volDiff = hasTrend && latestVol !== null && latestVol !== undefined && prevVol !== null && prevVol !== undefined ? latestVol - prevVol : 0;
   const trendPercent = prevVol && prevVol > 0 ? (volDiff / prevVol) * 100 : 0;
 
   if (loading) {
@@ -56,24 +81,22 @@ export default function PatientDetailPage() {
   return (
     <AppShell>
       <div className="max-w-4xl mx-auto space-y-8 pb-12">
-        {/* Back button */}
         <Link href="/patients" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Registry
         </Link>
 
-        {/* Patient Profile Header */}
         <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-card to-primary/5 neon-card">
           <CardContent className="p-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
               <div className="flex items-center gap-5">
                 <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner-glow relative">
-                  <User2 className="h-10 w-10" />
+                  <User className="h-10 w-10" />
                   <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-background rounded-full flex items-center justify-center">
                     <div className="h-3 w-3 bg-success rounded-full" />
                   </div>
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold mb-1">{patient?.medical_record_number}</h1>
+                  <h1 className="text-3xl font-bold mb-1">{patient?.mrn}</h1>
                   <p className="text-muted-foreground text-sm font-mono flex items-center gap-2">
                     ID: {patient?.id}
                   </p>
@@ -90,12 +113,11 @@ export default function PatientDetailPage() {
                 </div>
               </div>
 
-              {/* Volume Trend Sparkline Area */}
-              {hasTrend && (
+              {hasTrend && latestVol !== null && latestVol !== undefined && (
                 <div className="glass rounded-xl p-4 min-w-[200px] border border-border/50 text-right">
                   <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Latest Volume</p>
                   <div className="flex items-baseline justify-end gap-1">
-                    <span className="text-2xl font-bold gradient-text">{latestVol?.toFixed(2)}</span>
+                    <span className="text-2xl font-bold gradient-text">{latestVol.toFixed(2)}</span>
                     <span className="text-sm text-muted-foreground font-medium">mL</span>
                   </div>
                   <div className={`text-xs font-medium mt-1 flex items-center justify-end gap-1 ${volDiff > 0 ? 'text-danger' : volDiff < 0 ? 'text-success' : 'text-muted-foreground'}`}>
@@ -108,7 +130,6 @@ export default function PatientDetailPage() {
           </CardContent>
         </Card>
 
-        {/* Timeline Section */}
         <div>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold tracking-tight">Longitudinal Scans</h2>
@@ -134,7 +155,6 @@ export default function PatientDetailPage() {
             </Card>
           ) : (
             <div className="relative pl-4 sm:pl-8 space-y-6">
-              {/* Animated Timeline Line */}
               <motion.div 
                 initial={{ height: 0 }}
                 animate={{ height: "100%" }}
@@ -142,77 +162,79 @@ export default function PatientDetailPage() {
                 className="absolute left-[15px] sm:left-[31px] top-6 bottom-6 w-0.5 bg-gradient-to-b from-primary via-secondary to-transparent -z-10"
               />
 
-              {scans.map((scan, i) => (
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.15 + 0.3 }}
-                  key={scan.id}
-                  className="relative group"
-                >
-                  {/* Timeline Dot */}
-                  <div className={`absolute -left-4 sm:-left-8 top-6 h-4 w-4 rounded-full border-2 border-background shadow-sm ${
-                    scan.status === 'COMPLETED' ? 'bg-success' : 
-                    scan.status === 'FAILED' ? 'bg-danger' : 'bg-warning animate-pulse'
-                  }`} />
+              {scans.map((scan, i) => {
+                const status = scan.job?.status || 'queued';
+                return (
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.15 + 0.3 }}
+                    key={scan.id}
+                    className="relative group"
+                  >
+                    <div className={`absolute -left-4 sm:-left-8 top-6 h-4 w-4 rounded-full border-2 border-background shadow-sm ${
+                      status === 'complete' ? 'bg-success' : 
+                      status === 'failed' ? 'bg-danger' : 'bg-warning animate-pulse'
+                    }`} />
 
-                  <Card className={`transition-all duration-300 hover:shadow-card hover:-translate-y-1 ${
-                    scan.status === 'PROCESSING' ? 'border-warning/40 bg-warning/5' : ''
-                  }`}>
-                    <div className="p-5 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-lg">Scan Timepoint</h3>
-                          <Badge 
-                            variant={scan.status === 'COMPLETED' ? 'success' : scan.status === 'FAILED' ? 'danger' : 'warning'}
-                            pulse={scan.status === 'PROCESSING'}
-                          >
-                            {scan.status}
-                          </Badge>
-                        </div>
-                        
-                        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                          <span className="flex items-center gap-1.5">
-                            <Clock className="h-4 w-4 opacity-70" />
-                            {new Date(scan.created_at).toLocaleString()}
-                          </span>
-                          <span className="flex items-center gap-1.5 font-mono text-xs">
-                            ID: {scan.id.substring(0, 8)}...
-                          </span>
-                        </div>
-
-                        {scan.tumor_volume_ml !== undefined && scan.status === 'COMPLETED' && (
-                          <div className="mt-4 inline-flex items-center gap-2 glass rounded-lg px-3 py-1.5 border border-primary/20 bg-primary/5">
-                            <Activity className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-medium">Volume: <span className="text-foreground">{scan.tumor_volume_ml.toFixed(2)} mL</span></span>
+                    <Card className={`transition-all duration-300 hover:shadow-card hover:-translate-y-1 ${
+                      status === 'running' ? 'border-warning/40 bg-warning/5' : ''
+                    }`}>
+                      <div className="p-5 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <h3 className="font-semibold text-lg">Scan Timepoint</h3>
+                            <Badge 
+                              variant={status === 'complete' ? 'success' : status === 'failed' ? 'danger' : 'warning'}
+                              pulse={status === 'running' || status === 'queued'}
+                            >
+                              {status.toUpperCase()}
+                            </Badge>
                           </div>
-                        )}
-                        {scan.error_message && (
-                          <div className="mt-3 text-sm text-danger flex items-start gap-1.5 bg-danger/10 p-2.5 rounded-lg border border-danger/20">
-                            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                            <span>{scan.error_message}</span>
+                          
+                          <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="h-4 w-4 opacity-70" />
+                              {new Date(scan.created_at).toLocaleString()}
+                            </span>
+                            <span className="flex items-center gap-1.5 font-mono text-xs">
+                              ID: {scan.id}
+                            </span>
                           </div>
-                        )}
-                      </div>
 
-                      <div className="flex items-center gap-2 mt-4 sm:mt-0">
-                        {scan.status === 'COMPLETED' && (
-                          <Link href={`/results/${scan.id}`}>
-                            <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all">
-                              <Eye className="h-4 w-4 mr-2" /> View Results
+                          {status === 'complete' && scan.job?.result?.tumor_volume_ml !== undefined && (
+                            <div className="mt-4 inline-flex items-center gap-2 glass rounded-lg px-3 py-1.5 border border-primary/20 bg-primary/5">
+                              <Activity className="h-4 w-4 text-primary" />
+                              <span className="text-sm font-medium">Volume: <span className="text-foreground">{scan.job.result.tumor_volume_ml.toFixed(2)} mL</span></span>
+                            </div>
+                          )}
+                          {status === 'failed' && scan.job?.error && (
+                            <div className="mt-3 text-sm text-danger flex items-start gap-1.5 bg-danger/10 p-2.5 rounded-lg border border-danger/20">
+                              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                              <span>{scan.job.error}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2 mt-4 sm:mt-0">
+                          {status === 'complete' && scan.job_id && (
+                            <Link href={`/results/${scan.job_id}`}>
+                              <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all">
+                                <Eye className="h-4 w-4 mr-2" /> View Results
+                              </Button>
+                            </Link>
+                          )}
+                          {(status === 'running' || status === 'queued') && (
+                            <Button variant="outline" disabled className="opacity-70">
+                              Processing...
                             </Button>
-                          </Link>
-                        )}
-                        {scan.status === 'PROCESSING' && (
-                          <Button variant="outline" disabled className="opacity-70">
-                            Processing...
-                          </Button>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </Card>
-                </motion.div>
-              ))}
+                    </Card>
+                  </motion.div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -221,7 +243,6 @@ export default function PatientDetailPage() {
   );
 }
 
-// Simple wrapper for lucide icon to avoid naming conflict
 function UploadIcon(props: any) {
   return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>;
 }

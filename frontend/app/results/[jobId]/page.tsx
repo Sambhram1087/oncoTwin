@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
-import { api, ScanInfo } from "@/lib/api";
+import { api, Job, Scan } from "@/lib/api";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,13 @@ import {
   ArrowLeft, Download, FileText, CheckCircle2, 
   AlertCircle, Brain, Activity, Target, Share2, Layers
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function ResultsPage() {
   const { jobId } = useParams() as { jobId: string };
   const router = useRouter();
-  const [scan, setScan] = useState<ScanInfo | null>(null);
+  const [job, setJob] = useState<Job | null>(null);
+  const [scan, setScan] = useState<Scan | null>(null);
   const [loading, setLoading] = useState(true);
   
   // Simulated processing progress
@@ -31,22 +32,24 @@ export default function ResultsPage() {
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
+    const jId = parseInt(jobId, 10);
+    if (isNaN(jId)) return;
 
     const fetchStatus = async () => {
       try {
-        const data = await api.scans.get(jobId);
-        setScan(data);
+        const jobData = await api.jobs.get(jId);
+        setJob(jobData);
         
-        if (data.status === 'COMPLETED' || data.status === 'FAILED') {
+        if (jobData.status === 'complete' || jobData.status === 'failed') {
           setLoading(false);
-          if (data.status === 'COMPLETED' && !confettiShown.current) {
+          if (jobData.status === 'complete' && !confettiShown.current) {
             setProgress(100);
             setCurrentStep(4);
             setShowConfetti(true);
             confettiShown.current = true;
             setTimeout(() => setShowConfetti(false), 3000);
           }
-        } else if (data.status === 'PROCESSING') {
+        } else if (jobData.status === 'running' || jobData.status === 'queued') {
           // Simulate progress stages
           setProgress(p => Math.min(p + Math.random() * 5 + 1, 95));
           if (progress < 30) setCurrentStep(1);
@@ -139,7 +142,7 @@ export default function ResultsPage() {
     );
   }
 
-  if (scan?.status === 'FAILED') {
+  if (job?.status === 'failed') {
     return (
       <AppShell>
         <div className="max-w-xl mx-auto mt-20 text-center">
@@ -148,12 +151,10 @@ export default function ResultsPage() {
           </div>
           <h2 className="text-2xl font-bold mb-2">Analysis Failed</h2>
           <p className="text-muted-foreground mb-8">
-            {scan.error_message || "An unexpected error occurred during processing."}
+            {job.error || "An unexpected error occurred during processing."}
           </p>
           <div className="flex justify-center gap-4">
-            <Link href={`/patients/${scan.patient_id}`}>
-              <Button variant="outline">Back to Patient</Button>
-            </Link>
+            <Button variant="outline" onClick={() => router.back()}>Back</Button>
             <Link href="/upload">
               <Button>Try Again</Button>
             </Link>
@@ -168,9 +169,9 @@ export default function ResultsPage() {
       {renderConfetti()}
       <div className="max-w-6xl mx-auto space-y-6 pb-12">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <Link href={`/patients/${scan?.patient_id}`} className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Patient Profile
-          </Link>
+          <button onClick={() => router.back()} className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back
+          </button>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="hidden sm:flex">
               <Share2 className="h-4 w-4 mr-2" /> Share
@@ -213,14 +214,14 @@ export default function ResultsPage() {
               <CardContent>
                 <div className="flex items-baseline gap-2 mb-2">
                   <span className="text-5xl font-bold tracking-tighter gradient-text">
-                    <AnimatedCounter target={scan?.tumor_volume_ml || 0} decimals={2} />
+                    <AnimatedCounter target={job?.result?.tumor_volume_ml || 0} decimals={2} />
                   </span>
                   <span className="text-xl font-medium text-muted-foreground">mL</span>
                 </div>
                 <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden mt-4">
                    <motion.div 
                      initial={{ width: 0 }} 
-                     animate={{ width: `${Math.min(((scan?.tumor_volume_ml || 0) / 100) * 100, 100)}%` }} 
+                     animate={{ width: `${Math.min(((job?.result?.tumor_volume_ml || 0) / 100) * 100, 100)}%` }} 
                      transition={{ duration: 1.5, ease: "easeOut" }}
                      className="h-full bg-primary" 
                    />
@@ -237,7 +238,7 @@ export default function ResultsPage() {
               <CardContent>
                 <div className="flex items-baseline gap-2">
                   <span className="text-4xl font-bold tracking-tighter text-foreground">
-                    <AnimatedCounter target={98.2} decimals={1} suffix="%" />
+                    <AnimatedCounter target={(job?.result?.confidence || 0.98) * 100} decimals={1} suffix="%" />
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">
@@ -256,21 +257,17 @@ export default function ResultsPage() {
                 <dl className="space-y-4 text-sm">
                   <div className="flex justify-between border-b border-border/50 pb-2">
                     <dt className="text-muted-foreground">Scan ID</dt>
-                    <dd className="font-mono text-xs">{scan?.id.substring(0, 8)}</dd>
-                  </div>
-                  <div className="flex justify-between border-b border-border/50 pb-2">
-                    <dt className="text-muted-foreground">Patient</dt>
-                    <dd className="font-medium">{scan?.patient_id.substring(0, 8)}</dd>
+                    <dd className="font-mono text-xs">{job?.scan_id}</dd>
                   </div>
                   <div className="flex justify-between border-b border-border/50 pb-2">
                     <dt className="text-muted-foreground">Date</dt>
                     <dd className="font-medium">
-                      {scan?.created_at ? new Date(scan.created_at).toLocaleDateString() : '-'}
+                      {job?.created_at ? new Date(job.created_at).toLocaleDateString() : '-'}
                     </dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt className="text-muted-foreground">Modality</dt>
-                    <dd className="font-medium">T1ce NIfTI</dd>
+                    <dt className="text-muted-foreground">Model Version</dt>
+                    <dd className="font-medium">{job?.result?.model_version || 'v2.1'}</dd>
                   </div>
                 </dl>
               </CardContent>

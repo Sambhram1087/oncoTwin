@@ -6,19 +6,20 @@ import { AppShell } from "@/components/app-shell";
 import { api, Patient } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Upload, File as FileIcon, X, Check, Brain, Search, Users, Activity } from "lucide-react";
+import { ParticleField } from "@/components/ui/particle-field";
+import { Upload, File as FileIcon, Check, Brain, Search, Users, Activity, ChevronRight, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Input } from "@/components/ui/input";
 
 export default function UploadPage() {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>([]);
-  const [patientId, setPatientId] = useState("");
+  const [patientId, setPatientId] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [step, setStep] = useState(1); // 1: Select Patient, 2: Upload File, 3: Confirm
+  const [step, setStep] = useState(1);
 
   useEffect(() => {
     api.patients.list().then(setPatients).catch(console.error);
@@ -46,13 +47,13 @@ export default function UploadPage() {
   };
 
   const handleUpload = async () => {
-    if (!file || !patientId) return;
+    if (!file || patientId === null) return;
     setUploading(true);
     try {
-      const res = await api.scans.upload(patientId, file);
+      const res = await api.scans.upload(patientId, file, "t1ce", "baseline");
       // Wait a moment for UX
       setTimeout(() => {
-        router.push(`/results/${res.scan_id}`);
+        router.push(`/results/${res.id}`);
       }, 800);
     } catch (err) {
       console.error(err);
@@ -62,7 +63,7 @@ export default function UploadPage() {
   };
 
   const filteredPatients = patients.filter(p => 
-    p.medical_record_number.toLowerCase().includes(search.toLowerCase())
+    p.mrn.toLowerCase().includes(search.toLowerCase()) || p.id.toString().includes(search.toLowerCase())
   );
 
   const selectedPatientData = patients.find(p => p.id === patientId);
@@ -135,7 +136,7 @@ export default function UploadPage() {
                           className="p-4 rounded-xl border border-border/50 hover:border-primary/50 hover:bg-primary/5 cursor-pointer flex justify-between items-center transition-all group"
                         >
                           <div>
-                            <p className="font-semibold">{p.medical_record_number}</p>
+                            <p className="font-semibold">{p.mrn}</p>
                             <p className="text-xs text-muted-foreground font-mono">ID: {p.id}</p>
                           </div>
                           <div className="h-8 w-8 rounded-full bg-background border border-border flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-colors">
@@ -166,11 +167,11 @@ export default function UploadPage() {
 
                   <div className="mb-4 p-3 rounded-xl bg-muted/50 border border-border flex items-center gap-3">
                      <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
-                       <User2 className="h-5 w-5 text-primary" />
+                       <User className="h-5 w-5 text-primary" />
                      </div>
                      <div>
                        <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Selected Patient</p>
-                       <p className="font-medium">{selectedPatientData?.medical_record_number}</p>
+                       <p className="font-medium">{selectedPatientData?.mrn}</p>
                      </div>
                   </div>
 
@@ -234,9 +235,9 @@ export default function UploadPage() {
                         </div>
                      </div>
                      <div className="flex items-center gap-3">
-                        <User2 className="h-8 w-8 p-1.5 bg-muted rounded-lg text-muted-foreground" />
+                        <User className="h-8 w-8 p-1.5 bg-muted rounded-lg text-muted-foreground" />
                         <div>
-                          <p className="font-medium">{selectedPatientData?.medical_record_number}</p>
+                          <p className="font-medium">{selectedPatientData?.mrn}</p>
                           <p className="text-xs text-muted-foreground">Target Patient</p>
                         </div>
                      </div>

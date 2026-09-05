@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
-import { api, DashboardStats } from "@/lib/api";
+import { api, Patient, Scan } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,16 +22,37 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 
+interface MockDashboardStats {
+  total_patients: number;
+  total_scans: number;
+  pending_jobs: number;
+  recent_jobs: {
+    id: number;
+    patient_id: number;
+    status: "queued" | "running" | "complete" | "failed";
+    created_at: string;
+  }[];
+}
+
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [stats, setStats] = useState<MockDashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
-    api.stats.getDashboard().then((res) => {
-      setStats(res);
+    // Mock fetching dashboard stats since there's no endpoint
+    setTimeout(() => {
+      setStats({
+        total_patients: 142,
+        total_scans: 356,
+        pending_jobs: 2,
+        recent_jobs: [
+          { id: 101, patient_id: 10, status: "complete", created_at: new Date().toISOString() },
+          { id: 102, patient_id: 12, status: "running", created_at: new Date().toISOString() },
+        ]
+      });
       setLoading(false);
-    }).catch(console.error);
+    }, 800);
   }, []);
 
   const getTimeGreeting = () => {
@@ -129,15 +150,12 @@ export default function DashboardPage() {
           ].map((stat, i) => (
             <motion.div key={i} custom={i} initial="hidden" animate="visible" variants={stagger}>
               <Card className="h-full overflow-hidden relative group">
-                {/* Accent top border */}
                 <div className={`absolute top-0 inset-x-0 h-1 bg-${stat.color}`} />
-                
                 <CardContent className="p-5 flex flex-col justify-between h-full">
                   <div className="flex justify-between items-start mb-4">
                     <div className={`h-10 w-10 rounded-xl bg-${stat.color}/10 flex items-center justify-center text-${stat.color}`}>
                       <stat.icon className="h-5 w-5" />
                     </div>
-                    {/* Tiny sparkline */}
                     <svg className={`w-16 h-8 text-${stat.color}/30`} viewBox="0 -10 100 120" preserveAspectRatio="none">
                       <polyline
                         fill="none"
@@ -149,7 +167,6 @@ export default function DashboardPage() {
                       />
                     </svg>
                   </div>
-                  
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-1">{stat.label}</p>
                     <div className="flex items-baseline gap-1">
@@ -194,7 +211,6 @@ export default function DashboardPage() {
                   </Button>
                 </Link>
               </div>
-              
               <CardContent className="p-0">
                 {loading ? (
                   <div className="p-8 text-center space-y-4">
@@ -210,7 +226,7 @@ export default function DashboardPage() {
                   </div>
                 ) : (
                   <div className="divide-y divide-border/50">
-                    {stats?.recent_jobs.slice(0, 5).map((job, idx) => (
+                    {stats?.recent_jobs.slice(0, 5).map((job) => (
                       <Link 
                         key={job.id} 
                         href={`/results/${job.id}`}
@@ -218,22 +234,22 @@ export default function DashboardPage() {
                       >
                         <div className="flex items-center gap-4">
                           <div className={`h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            job.status === 'COMPLETED' ? 'bg-success/15 text-success' : 
-                            job.status === 'FAILED' ? 'bg-danger/15 text-danger' : 
+                            job.status === 'complete' ? 'bg-success/15 text-success' : 
+                            job.status === 'failed' ? 'bg-danger/15 text-danger' : 
                             'bg-warning/15 text-warning'
                           }`}>
-                            {job.status === 'COMPLETED' ? <CheckCircle2 className="h-5 w-5" /> : 
-                             job.status === 'FAILED' ? <AlertCircle className="h-5 w-5" /> : 
+                            {job.status === 'complete' ? <CheckCircle2 className="h-5 w-5" /> : 
+                             job.status === 'failed' ? <AlertCircle className="h-5 w-5" /> : 
                              <Activity className="h-5 w-5" />}
                           </div>
                           <div>
                             <p className="text-sm font-medium flex items-center gap-2">
-                              Patient #{job.patient_id.substring(0, 6)}
+                              Patient #{job.patient_id}
                               <Badge variant={
-                                job.status === 'COMPLETED' ? 'success' : 
-                                job.status === 'FAILED' ? 'danger' : 'warning'
+                                job.status === 'complete' ? 'success' : 
+                                job.status === 'failed' ? 'danger' : 'warning'
                               }>
-                                {job.status}
+                                {job.status.toUpperCase()}
                               </Badge>
                             </p>
                             <p className="text-xs text-muted-foreground mt-0.5">

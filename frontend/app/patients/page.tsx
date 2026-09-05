@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AppShell } from "@/components/app-shell";
 import { api, Patient } from "@/lib/api";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Calendar, FileText, Activity, AlertCircle, ChevronRight, Hash, ArrowUpDown } from "lucide-react";
+import { Search, Plus, Calendar, Users, AlertCircle, ChevronRight, Hash, ArrowUpDown, User } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function PatientsPage() {
@@ -41,7 +41,7 @@ export default function PatientsPage() {
     setSubmitting(true);
     setError(null);
     try {
-      await api.patients.create({ medical_record_number: newMrn });
+      await api.patients.create({ mrn: newMrn, full_name: `Patient ${newMrn}` });
       await fetchPatients();
       setShowAddForm(false);
       setNewMrn("");
@@ -53,14 +53,13 @@ export default function PatientsPage() {
   };
 
   const filtered = patients.filter((p) =>
-    p.medical_record_number.toLowerCase().includes(search.toLowerCase()) ||
-    p.id.toLowerCase().includes(search.toLowerCase())
+    p.mrn.toLowerCase().includes(search.toLowerCase()) ||
+    p.id.toString().includes(search.toLowerCase())
   );
 
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto space-y-6 pb-12">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
             <h1 className="text-3xl font-bold tracking-tight">Patient Registry</h1>
@@ -73,7 +72,6 @@ export default function PatientsPage() {
           </motion.div>
         </div>
 
-        {/* Animated Add Form */}
         <AnimatePresence>
           {showAddForm && (
             <motion.div
@@ -116,7 +114,6 @@ export default function PatientsPage() {
           )}
         </AnimatePresence>
 
-        {/* Toolbar */}
         <Card className="shadow-sm">
           <div className="p-4 flex items-center justify-between border-b border-border bg-muted/20">
             <div className="relative max-w-sm w-full">
@@ -133,7 +130,6 @@ export default function PatientsPage() {
             </div>
           </div>
 
-          {/* Table / List */}
           <div className="overflow-x-auto min-h-[400px]">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-64 space-y-4">
@@ -181,14 +177,14 @@ export default function PatientsPage() {
                     >
                       <td className="px-6 py-4 font-medium text-foreground flex items-center gap-3">
                         <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                          <User2 className="h-4 w-4" />
+                          <User className="h-4 w-4" />
                         </div>
-                        {p.medical_record_number}
+                        {p.mrn}
                       </td>
                       <td className="px-6 py-4 text-muted-foreground font-mono text-xs">
                         <div className="flex items-center gap-1.5">
                           <Hash className="h-3 w-3" />
-                          {p.id.substring(0, 8)}...
+                          {p.id.toString().substring(0, 8)}...
                         </div>
                       </td>
                       <td className="px-6 py-4 text-muted-foreground">
