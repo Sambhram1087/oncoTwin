@@ -54,10 +54,11 @@ const config: Config = {
         glow: "0 0 30px -5px hsl(var(--primary) / 0.5), 0 0 60px -20px hsl(var(--primary) / 0.3)",
         "glow-sm": "0 0 15px -3px hsl(var(--primary) / 0.4)",
         "glow-lg": "0 0 60px -10px hsl(var(--primary) / 0.5), 0 0 120px -30px hsl(var(--secondary) / 0.3)",
-        card: "0 1px 3px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.04)",
-        "card-hover": "0 2px 8px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)",
+        card: "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.06)",
+        "card-hover": "0 2px 8px rgba(0,0,0,0.08), 0 16px 40px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.08)",
         "inner-glow": "inset 0 0 20px hsl(var(--primary) / 0.1)",
-        float: "0 20px 40px rgba(0,0,0,0.4), 0 0 80px -20px hsl(var(--primary) / 0.2)",
+        float: "0 20px 40px rgba(0,0,0,0.15), 0 0 80px -20px hsl(var(--primary) / 0.2)",
+        "neon": "0 0 20px -5px hsl(var(--primary) / 0.25), 0 0 60px -15px hsl(var(--primary) / 0.15), 0 8px 32px -8px rgba(0,0,0,0.15)",
       },
       keyframes: {
         shimmer: {
@@ -89,6 +90,24 @@ const config: Config = {
           "50%": { backgroundPosition: "100% 50%" },
           "100%": { backgroundPosition: "0% 50%" },
         },
+        "slide-in-left": {
+          from: { opacity: "0", transform: "translateX(-24px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        "slide-in-right": {
+          from: { opacity: "0", transform: "translateX(24px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        "bounce-in": {
+          "0%": { opacity: "0", transform: "scale(0.3)" },
+          "50%": { opacity: "1", transform: "scale(1.05)" },
+          "70%": { transform: "scale(0.95)" },
+          "100%": { transform: "scale(1)" },
+        },
+        "spin-slow": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
       },
       animation: {
         shimmer: "shimmer 2s infinite linear",
@@ -98,6 +117,10 @@ const config: Config = {
         "pulse-glow": "pulse-glow 3s ease-in-out infinite",
         float: "float 4s ease-in-out infinite",
         "gradient-shift": "gradient-shift 6s ease infinite",
+        "slide-in-left": "slide-in-left 0.45s ease-out both",
+        "slide-in-right": "slide-in-right 0.45s ease-out both",
+        "bounce-in": "bounce-in 0.6s ease-out both",
+        "spin-slow": "spin-slow 20s linear infinite",
       },
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",

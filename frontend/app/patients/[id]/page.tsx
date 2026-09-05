@@ -1,215 +1,227 @@
 "use client";
 
-import { use } from "react";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
-import { useRequireAuth } from "@/lib/use-require-auth";
 import { AppShell } from "@/components/app-shell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { api, Patient, ScanInfo } from "@/lib/api";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api";
-import {
-  Upload,
-  FileScan,
-  ChevronRight,
-  ArrowLeft,
-  User2,
-  Calendar,
-  Activity,
-  BadgeInfo,
+import { Badge } from "@/components/ui/badge";
+import { 
+  User2, Calendar, FileScan, ArrowLeft, Clock, 
+  Activity, CheckCircle2, AlertCircle, Eye, ArrowRight 
 } from "lucide-react";
+import { motion } from "framer-motion";
 
-export default function PatientDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = use(params);
-  const patientId = Number(id);
-  const { ready } = useRequireAuth();
+export default function PatientDetailPage() {
+  const { id } = useParams() as { id: string };
+  const router = useRouter();
+  const [patient, setPatient] = useState<Patient | null>(null);
+  const [scans, setScans] = useState<ScanInfo[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data: patient, isLoading: patientLoading } = useQuery({
-    queryKey: ["patient", patientId],
-    queryFn: () => api.patients.get(patientId),
-    enabled: ready,
-  });
+  useEffect(() => {
+    Promise.all([
+      api.patients.get(id).catch(() => null),
+      api.scans.list(id).catch(() => []),
+    ]).then(([p, s]) => {
+      if (!p) router.push("/patients");
+      setPatient(p);
+      // Sort scans by date descending (newest first)
+      setScans(s.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()));
+      setLoading(false);
+    });
+  }, [id, router]);
 
-  const { data: scans, isLoading: scansLoading } = useQuery({
-    queryKey: ["scans", patientId],
-    queryFn: () => api.scans.list(patientId),
-    enabled: ready,
-  });
+  // Volume trend logic (simplified sparkline)
+  const completedScans = scans.filter(s => s.status === 'COMPLETED' && s.tumor_volume_ml !== undefined).reverse(); // oldest first for trend
+  const hasTrend = completedScans.length > 1;
+  const latestVol = hasTrend ? completedScans[completedScans.length - 1].tumor_volume_ml : null;
+  const prevVol = hasTrend ? completedScans[completedScans.length - 2].tumor_volume_ml : null;
+  const volDiff = hasTrend && latestVol !== null && prevVol !== null ? latestVol - prevVol : 0;
+  const trendPercent = prevVol && prevVol > 0 ? (volDiff / prevVol) * 100 : 0;
 
-  if (!ready || patientLoading) {
+  if (loading) {
     return (
       <AppShell>
-        <Skeleton className="h-8 w-24 mb-6 rounded-lg" />
-        <Skeleton className="h-32 w-full mb-6 rounded-2xl" />
-        <Skeleton className="h-64 w-full rounded-2xl" />
+        <div className="flex flex-col items-center justify-center h-[60vh] space-y-4">
+          <div className="w-10 h-10 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+          <p className="text-sm text-muted-foreground font-medium">Loading patient record...</p>
+        </div>
       </AppShell>
     );
   }
 
   return (
     <AppShell>
-      {/* ── Back link ─────────────────────────────────────────── */}
-      <Link
-        href="/patients"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        All patients
-      </Link>
+      <div className="max-w-4xl mx-auto space-y-8 pb-12">
+        {/* Back button */}
+        <Link href="/patients" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+          <ArrowLeft className="h-4 w-4 mr-1" /> Back to Registry
+        </Link>
 
-      {/* ── Patient header card ───────────────────────────────── */}
-      <div className="gradient-border rounded-2xl p-6 mb-6 animate-fade-in">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-4">
-            {/* Avatar */}
-            <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-primary/30 to-secondary/20 border border-primary/25 flex items-center justify-center text-2xl font-bold text-primary flex-shrink-0 shadow-glow-sm">
-              {patient?.full_name?.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">{patient?.full_name}</h1>
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <span className="badge badge-info">MRN: {patient?.mrn}</span>
-                {patient?.sex && (
-                  <span className="badge badge-info">{patient.sex}</span>
-                )}
-                {patient?.diagnosis && (
-                  <span className="badge badge-warning">{patient.diagnosis}</span>
-                )}
+        {/* Patient Profile Header */}
+        <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-card to-primary/5 neon-card">
+          <CardContent className="p-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner-glow relative">
+                  <User2 className="h-10 w-10" />
+                  <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-background rounded-full flex items-center justify-center">
+                    <div className="h-3 w-3 bg-success rounded-full" />
+                  </div>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold mb-1">{patient?.medical_record_number}</h1>
+                  <p className="text-muted-foreground text-sm font-mono flex items-center gap-2">
+                    ID: {patient?.id}
+                  </p>
+                  <div className="flex gap-2 mt-3">
+                    <Badge variant="neutral">
+                      <Calendar className="h-3 w-3 mr-1" />
+                      Added {new Date(patient?.created_at || "").toLocaleDateString()}
+                    </Badge>
+                    <Badge variant="info">
+                      <FileScan className="h-3 w-3 mr-1" />
+                      {scans.length} Scans
+                    </Badge>
+                  </div>
+                </div>
               </div>
+
+              {/* Volume Trend Sparkline Area */}
+              {hasTrend && (
+                <div className="glass rounded-xl p-4 min-w-[200px] border border-border/50 text-right">
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Latest Volume</p>
+                  <div className="flex items-baseline justify-end gap-1">
+                    <span className="text-2xl font-bold gradient-text">{latestVol?.toFixed(2)}</span>
+                    <span className="text-sm text-muted-foreground font-medium">mL</span>
+                  </div>
+                  <div className={`text-xs font-medium mt-1 flex items-center justify-end gap-1 ${volDiff > 0 ? 'text-danger' : volDiff < 0 ? 'text-success' : 'text-muted-foreground'}`}>
+                    {volDiff > 0 ? '↑' : volDiff < 0 ? '↓' : ''} 
+                    {Math.abs(volDiff).toFixed(2)} mL ({Math.abs(trendPercent).toFixed(1)}%)
+                  </div>
+                </div>
+              )}
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Timeline Section */}
+        <div>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold tracking-tight">Longitudinal Scans</h2>
+            <Link href="/upload">
+              <Button size="sm" className="shadow-glow-sm">
+                <UploadIcon className="h-4 w-4 mr-2" /> Upload New
+              </Button>
+            </Link>
           </div>
 
-          <Link href={`/upload?patient=${patientId}`}>
-            <Button className="gap-2 shadow-glow-sm">
-              <Upload className="h-4 w-4" />
-              Upload scan
-            </Button>
-          </Link>
-        </div>
-
-        {/* Patient meta row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-5 border-t border-border/50">
-          {[
-            {
-              icon: User2,
-              label: "Patient ID",
-              value: `#${patientId}`,
-            },
-            {
-              icon: Calendar,
-              label: "Date of birth",
-              value: patient?.date_of_birth
-                ? new Date(patient.date_of_birth).toLocaleDateString()
-                : "—",
-            },
-            {
-              icon: Activity,
-              label: "MRI scans",
-              value: scans?.length ?? "—",
-            },
-            {
-              icon: BadgeInfo,
-              label: "Registry status",
-              value: "Active",
-            },
-          ].map((meta) => (
-            <div key={meta.label} className="flex items-center gap-2.5">
-              <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                <meta.icon className="h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-                  {meta.label}
+          {scans.length === 0 ? (
+            <Card className="border-dashed bg-muted/10">
+              <CardContent className="flex flex-col items-center justify-center p-12 text-center">
+                <FileScan className="h-12 w-12 text-muted-foreground/50 mb-4 animate-float" />
+                <h3 className="text-lg font-semibold mb-2">No scans yet</h3>
+                <p className="text-muted-foreground text-sm max-w-sm mb-6">
+                  Upload the first MRI timepoint for this patient to begin longitudinal tracking.
                 </p>
-                <p className="text-sm font-semibold">{meta.value}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+                <Link href="/upload">
+                  <Button variant="outline">Upload Scan</Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="relative pl-4 sm:pl-8 space-y-6">
+              {/* Animated Timeline Line */}
+              <motion.div 
+                initial={{ height: 0 }}
+                animate={{ height: "100%" }}
+                transition={{ duration: 1, ease: "easeInOut" }}
+                className="absolute left-[15px] sm:left-[31px] top-6 bottom-6 w-0.5 bg-gradient-to-b from-primary via-secondary to-transparent -z-10"
+              />
 
-      {/* ── Timeline card ────────────────────────────────────────── */}
-      <Card className="animate-fade-in">
-        <CardHeader>
-          <div className="flex items-center justify-between w-full">
-            <CardTitle className="flex items-center gap-2">
-              <FileScan className="h-4 w-4 text-primary" />
-              Digital twin timeline
-            </CardTitle>
-            <span className="badge badge-info">
-              {scans?.length ?? 0} scan{scans?.length !== 1 ? "s" : ""}
-            </span>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {scansLoading ? (
-            <div className="space-y-3">
-              {[1, 2].map((i) => (
-                <Skeleton key={i} className="h-16 rounded-xl" />
+              {scans.map((scan, i) => (
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: i * 0.15 + 0.3 }}
+                  key={scan.id}
+                  className="relative group"
+                >
+                  {/* Timeline Dot */}
+                  <div className={`absolute -left-4 sm:-left-8 top-6 h-4 w-4 rounded-full border-2 border-background shadow-sm ${
+                    scan.status === 'COMPLETED' ? 'bg-success' : 
+                    scan.status === 'FAILED' ? 'bg-danger' : 'bg-warning animate-pulse'
+                  }`} />
+
+                  <Card className={`transition-all duration-300 hover:shadow-card hover:-translate-y-1 ${
+                    scan.status === 'PROCESSING' ? 'border-warning/40 bg-warning/5' : ''
+                  }`}>
+                    <div className="p-5 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className="font-semibold text-lg">Scan Timepoint</h3>
+                          <Badge 
+                            variant={scan.status === 'COMPLETED' ? 'success' : scan.status === 'FAILED' ? 'danger' : 'warning'}
+                            pulse={scan.status === 'PROCESSING'}
+                          >
+                            {scan.status}
+                          </Badge>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                          <span className="flex items-center gap-1.5">
+                            <Clock className="h-4 w-4 opacity-70" />
+                            {new Date(scan.created_at).toLocaleString()}
+                          </span>
+                          <span className="flex items-center gap-1.5 font-mono text-xs">
+                            ID: {scan.id.substring(0, 8)}...
+                          </span>
+                        </div>
+
+                        {scan.tumor_volume_ml !== undefined && scan.status === 'COMPLETED' && (
+                          <div className="mt-4 inline-flex items-center gap-2 glass rounded-lg px-3 py-1.5 border border-primary/20 bg-primary/5">
+                            <Activity className="h-4 w-4 text-primary" />
+                            <span className="text-sm font-medium">Volume: <span className="text-foreground">{scan.tumor_volume_ml.toFixed(2)} mL</span></span>
+                          </div>
+                        )}
+                        {scan.error_message && (
+                          <div className="mt-3 text-sm text-danger flex items-start gap-1.5 bg-danger/10 p-2.5 rounded-lg border border-danger/20">
+                            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                            <span>{scan.error_message}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-4 sm:mt-0">
+                        {scan.status === 'COMPLETED' && (
+                          <Link href={`/results/${scan.id}`}>
+                            <Button variant="outline" className="group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all">
+                              <Eye className="h-4 w-4 mr-2" /> View Results
+                            </Button>
+                          </Link>
+                        )}
+                        {scan.status === 'PROCESSING' && (
+                          <Button variant="outline" disabled className="opacity-70">
+                            Processing...
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                </motion.div>
               ))}
             </div>
-          ) : scans && scans.length > 0 ? (
-            <div className="relative">
-              {/* Timeline line */}
-              <div className="absolute left-[13px] top-4 bottom-4 w-px bg-gradient-to-b from-primary via-primary/40 to-transparent" />
-
-              <ol className="space-y-4 pl-8">
-                {scans.map((scan, idx) => (
-                  <li key={scan.id} className="relative animate-fade-in" style={{ animationDelay: `${idx * 80}ms` }}>
-                    {/* Timeline dot */}
-                    <div className="absolute -left-[29px] top-3.5 h-3.5 w-3.5 rounded-full bg-primary border-2 border-background shadow-glow-sm" />
-
-                    <Link
-                      href={`/results/${scan.job_id ?? ""}`}
-                      className="group flex items-center justify-between rounded-2xl border border-border bg-muted/30 p-4 hover:bg-card-hover hover:border-primary/30 hover:shadow-card transition-all duration-200"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-primary/15 border border-primary/20 flex items-center justify-center flex-shrink-0">
-                          <FileScan className="h-4.5 w-4.5 text-primary" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-sm">
-                            {scan.visit_label || "Visit"} ·{" "}
-                            <span className="badge badge-info text-[10px]">
-                              {scan.modality}
-                            </span>
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {scan.original_filename} ·{" "}
-                            {new Date(scan.created_at).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all duration-200 flex-shrink-0" />
-                    </Link>
-                  </li>
-                ))}
-              </ol>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="h-16 w-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-4 animate-float">
-                <FileScan className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <p className="font-medium mb-1">No scans yet</p>
-              <p className="text-sm text-muted-foreground mb-5">
-                Upload the first MRI to start building this patient&apos;s digital twin
-              </p>
-              <Link href={`/upload?patient=${patientId}`}>
-                <Button variant="outline" size="sm" className="gap-2">
-                  <Upload className="h-4 w-4" />
-                  Upload first MRI
-                </Button>
-              </Link>
-            </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </AppShell>
   );
+}
+
+// Simple wrapper for lucide icon to avoid naming conflict
+function UploadIcon(props: any) {
+  return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>;
 }

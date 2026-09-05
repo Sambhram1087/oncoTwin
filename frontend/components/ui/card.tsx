@@ -5,7 +5,19 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
-        "rounded-2xl border border-border bg-card shadow-card transition-all duration-300",
+        "rounded-2xl border border-border bg-card shadow-card transition-all duration-300 neon-card",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+export function CardAccent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-border bg-card shadow-card transition-all duration-300 neon-card card-accent-top",
         className
       )}
       {...props}

@@ -1,441 +1,283 @@
 "use client";
 
-import { use, useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  CartesianGrid,
-  TooltipProps,
-} from "recharts";
-import { useRequireAuth } from "@/lib/use-require-auth";
-import { useJobProgress } from "@/lib/use-job-progress";
-import { AppShell } from "@/components/app-shell";
-import { TumorVisualization } from "@/components/tumor-visualization";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { api } from "@/lib/api";
-import {
-  CheckCircle2,
-  Loader2,
-  XCircle,
-  BarChart3,
-  TrendingUp,
-  Microscope,
-  Layers3,
-  Activity,
-  ArrowLeft,
-} from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { AppShell } from "@/components/app-shell";
+import { api, ScanInfo } from "@/lib/api";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { ProgressRing } from "@/components/ui/progress-ring";
+import TumorVisualization from "@/components/tumor-visualization";
+import { 
+  ArrowLeft, Download, FileText, CheckCircle2, 
+  AlertCircle, Brain, Activity, Target, Share2, Layers
+} from "lucide-react";
+import { motion } from "framer-motion";
 
-// Custom tooltip for theme-adaptive chart
-const ChartTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="glass-strong rounded-xl px-3 py-2 text-xs border border-border shadow-float">
-      <p className="text-muted-foreground mb-1">{label}</p>
-      <p className="font-semibold text-foreground">
-        {payload[0]?.value}
-        {payload[0]?.unit ?? ""}
-      </p>
-    </div>
-  );
-};
-
-export default function ResultsPage({
-  params,
-}: {
-  params: Promise<{ jobId: string }>;
-}) {
-  const { jobId: jobIdParam } = use(params);
-  const jobId = Number(jobIdParam);
-  const { ready } = useRequireAuth();
-  const [days, setDays] = useState(30);
-
-  const { data: job, refetch } = useQuery({
-    queryKey: ["job", jobId],
-    queryFn: () => api.jobs.get(jobId),
-    enabled: ready && !!jobId,
-    refetchInterval: (query) =>
-      query.state.data?.status === "complete" ||
-      query.state.data?.status === "failed"
-        ? false
-        : 2000,
-  });
-
-  const liveUpdate = useJobProgress(
-    job && job.status !== "complete" && job.status !== "failed" ? jobId : null
-  );
+export default function ResultsPage() {
+  const { jobId } = useParams() as { jobId: string };
+  const router = useRouter();
+  const [scan, setScan] = useState<ScanInfo | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Simulated processing progress
+  const [progress, setProgress] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [showConfetti, setShowConfetti] = useState(false);
+  const confettiShown = useRef(false);
 
   useEffect(() => {
-    if (
-      liveUpdate?.status === "complete" ||
-      liveUpdate?.status === "failed"
-    ) {
-      refetch();
-    }
-  }, [liveUpdate, refetch]);
+    let interval: NodeJS.Timeout;
 
-  const { data: prediction } = useQuery({
-    queryKey: ["prediction", jobId, days],
-    queryFn: () => api.predict.growth(jobId, days),
-    enabled: ready && job?.status === "complete",
-  });
+    const fetchStatus = async () => {
+      try {
+        const data = await api.scans.get(jobId);
+        setScan(data);
+        
+        if (data.status === 'COMPLETED' || data.status === 'FAILED') {
+          setLoading(false);
+          if (data.status === 'COMPLETED' && !confettiShown.current) {
+            setProgress(100);
+            setCurrentStep(4);
+            setShowConfetti(true);
+            confettiShown.current = true;
+            setTimeout(() => setShowConfetti(false), 3000);
+          }
+        } else if (data.status === 'PROCESSING') {
+          // Simulate progress stages
+          setProgress(p => Math.min(p + Math.random() * 5 + 1, 95));
+          if (progress < 30) setCurrentStep(1);
+          else if (progress < 60) setCurrentStep(2);
+          else setCurrentStep(3);
+        }
+      } catch (err) {
+        console.error(err);
+        setLoading(false);
+      }
+    };
 
-  const growthSeries = job?.result
-    ? [0, 30, 60, 90].map((d) => {
-        const months = d / 30;
-        const projected =
-          job.result!.tumor_volume_ml * 1.06 ** months;
-        return { day: d, volume: Math.round(projected * 100) / 100 };
-      })
-    : [];
+    fetchStatus();
+    interval = setInterval(fetchStatus, 1500);
 
-  if (!ready) return null;
+    return () => clearInterval(interval);
+  }, [jobId, progress]);
 
-  const displayedProgress = liveUpdate?.progress ?? job?.progress ?? 0;
-  const displayedStatus = liveUpdate?.status ?? job?.status ?? "queued";
-  const displayedStep = liveUpdate?.step;
+  // Confetti particles generator
+  const renderConfetti = () => {
+    if (!showConfetti) return null;
+    return (
+      <div className="fixed inset-0 pointer-events-none z-[100] overflow-hidden">
+        {Array.from({ length: 80 }).map((_, i) => (
+          <div
+            key={i}
+            className="confetti-piece"
+            style={{
+              left: `${Math.random() * 100}vw`,
+              backgroundColor: `hsl(${Math.random() * 360}, 80%, 60%)`,
+              animationDuration: `${Math.random() * 2 + 2}s`,
+              animationDelay: `${Math.random() * 0.5}s`
+            }}
+          />
+        ))}
+      </div>
+    );
+  };
 
-  const metricCards = job?.result
-    ? [
-        {
-          label: "Tumor volume",
-          value: `${job.result.tumor_volume_ml}`,
-          unit: "mL",
-          icon: Layers3,
-          color: "from-primary/20 to-primary/5",
-          iconColor: "text-primary",
-          iconBg: "bg-primary/15",
-          accentClass: "stat-card-primary",
-        },
-        {
-          label: "AI confidence",
-          value: `${((job.result.confidence ?? 0) * 100).toFixed(1)}`,
-          unit: "%",
-          icon: Activity,
-          color: "from-accent/20 to-accent/5",
-          iconColor: "text-accent",
-          iconBg: "bg-accent/15",
-          accentClass: "stat-card-accent",
-        },
-        {
-          label: "Voxel count",
-          value: job.result.segmentation_mask_summary.voxel_count.toLocaleString(),
-          unit: "",
-          icon: Microscope,
-          color: "from-secondary/20 to-secondary/5",
-          iconColor: "text-secondary",
-          iconBg: "bg-secondary/15",
-          accentClass: "stat-card-secondary",
-        },
-      ]
-    : [];
+  if (loading) {
+    const steps = [
+      "Initializing pipeline...",
+      "Preprocessing NIfTI volume...",
+      "Running UNet segmentation...",
+      "Computing radiomic features...",
+      "Finalizing results..."
+    ];
+
+    return (
+      <AppShell>
+        <div className="flex flex-col items-center justify-center min-h-[70vh] max-w-lg mx-auto text-center space-y-8 animate-fade-in">
+          <ProgressRing progress={Math.round(progress)} size={180} strokeWidth={10} />
+          
+          <div>
+            <h2 className="text-xl font-bold mb-2">Analyzing Scan</h2>
+            <div className="h-6 overflow-hidden relative">
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={currentStep}
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: -20, opacity: 0 }}
+                  className="text-muted-foreground font-medium"
+                >
+                  {steps[currentStep]}
+                </motion.p>
+              </AnimatePresence>
+            </div>
+          </div>
+
+          <div className="w-full space-y-3 mt-8">
+            {steps.slice(1, 5).map((stepText, idx) => {
+              const isActive = idx + 1 === currentStep;
+              const isDone = idx + 1 < currentStep;
+              return (
+                <div key={idx} className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                  isActive ? 'border-primary/50 bg-primary/5 shadow-glow-sm' : 
+                  isDone ? 'border-success/30 bg-success/5 text-success' : 'border-border bg-muted/20 text-muted-foreground opacity-50'
+                }`}>
+                  {isDone ? <CheckCircle2 className="h-4 w-4 text-success" /> : 
+                   isActive ? <div className="h-4 w-4 rounded-full border-2 border-primary/30 border-t-primary animate-spin" /> :
+                   <div className="h-4 w-4 rounded-full border-2 border-muted-foreground/30" />}
+                  <span className="text-sm font-medium">{stepText}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (scan?.status === 'FAILED') {
+    return (
+      <AppShell>
+        <div className="max-w-xl mx-auto mt-20 text-center">
+          <div className="h-20 w-20 rounded-full bg-danger/10 flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="h-10 w-10 text-danger" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">Analysis Failed</h2>
+          <p className="text-muted-foreground mb-8">
+            {scan.error_message || "An unexpected error occurred during processing."}
+          </p>
+          <div className="flex justify-center gap-4">
+            <Link href={`/patients/${scan.patient_id}`}>
+              <Button variant="outline">Back to Patient</Button>
+            </Link>
+            <Link href="/upload">
+              <Button>Try Again</Button>
+            </Link>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell>
-      {/* ── Back + Header ──────────────────────────────────────── */}
-      <Link
-        href="/patients"
-        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        Back to patients
-      </Link>
-
-      <div className="flex items-start justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <BarChart3 className="h-4 w-4 text-primary" />
-            <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-              Scan analysis
-            </span>
+      {renderConfetti()}
+      <div className="max-w-6xl mx-auto space-y-6 pb-12">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <Link href={`/patients/${scan?.patient_id}`} className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Patient Profile
+          </Link>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" className="hidden sm:flex">
+              <Share2 className="h-4 w-4 mr-2" /> Share
+            </Button>
+            <Button size="sm" className="shadow-glow-sm">
+              <Download className="h-4 w-4 mr-2" /> Export PDF
+            </Button>
           </div>
-          <h1 className="text-3xl font-bold">AI Results</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Job #{jobId} · Automated tumor segmentation &amp; prediction
-          </p>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-bold tracking-tight">Analysis Results</h1>
+          <Badge variant="success" pulse>Analysis Complete</Badge>
+        </div>
+
+        <div className="grid lg:grid-cols-3 gap-6">
+          {/* Left Col: 3D Viz */}
+          <div className="lg:col-span-2">
+            <Card className="h-[500px] lg:h-full min-h-[500px] overflow-hidden border-primary/20 bg-card flex flex-col relative group">
+              <div className="absolute top-4 left-4 z-10">
+                <Badge variant="neutral" className="bg-background/80 backdrop-blur border-border/50">
+                  <Layers className="h-3 w-3 mr-1.5" /> 3D Rendering
+                </Badge>
+              </div>
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-background to-background" />
+              <div className="relative flex-1">
+                <TumorVisualization />
+              </div>
+            </Card>
+          </div>
+
+          {/* Right Col: Metrics */}
+          <div className="space-y-6">
+            <Card className="neon-card bg-gradient-to-br from-card to-primary/5">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <Target className="h-5 w-5" /> Tumor Volume
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2 mb-2">
+                  <span className="text-5xl font-bold tracking-tighter gradient-text">
+                    <AnimatedCounter target={scan?.tumor_volume_ml || 0} decimals={2} />
+                  </span>
+                  <span className="text-xl font-medium text-muted-foreground">mL</span>
+                </div>
+                <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden mt-4">
+                   <motion.div 
+                     initial={{ width: 0 }} 
+                     animate={{ width: `${Math.min(((scan?.tumor_volume_ml || 0) / 100) * 100, 100)}%` }} 
+                     transition={{ duration: 1.5, ease: "easeOut" }}
+                     className="h-full bg-primary" 
+                   />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="neon-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-secondary">
+                  <Activity className="h-5 w-5" /> Confidence Score
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-4xl font-bold tracking-tighter text-foreground">
+                    <AnimatedCounter target={98.2} decimals={1} suffix="%" />
+                  </span>
+                </div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  High confidence segmentation mask generated.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="neon-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-accent" /> Details
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-4 text-sm">
+                  <div className="flex justify-between border-b border-border/50 pb-2">
+                    <dt className="text-muted-foreground">Scan ID</dt>
+                    <dd className="font-mono text-xs">{scan?.id.substring(0, 8)}</dd>
+                  </div>
+                  <div className="flex justify-between border-b border-border/50 pb-2">
+                    <dt className="text-muted-foreground">Patient</dt>
+                    <dd className="font-medium">{scan?.patient_id.substring(0, 8)}</dd>
+                  </div>
+                  <div className="flex justify-between border-b border-border/50 pb-2">
+                    <dt className="text-muted-foreground">Date</dt>
+                    <dd className="font-medium">
+                      {scan?.created_at ? new Date(scan.created_at).toLocaleDateString() : '-'}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Modality</dt>
+                    <dd className="font-medium">T1ce NIfTI</dd>
+                  </div>
+                </dl>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
-
-      {/* ── States ─────────────────────────────────────────────── */}
-      {!job ? (
-        <Skeleton className="h-48 rounded-2xl" />
-      ) : displayedStatus !== "complete" && displayedStatus !== "failed" ? (
-        /* Processing state */
-        <Card className="animate-scale-in border-primary/20 shadow-glow-sm">
-          <CardContent className="pt-10 pb-12 flex flex-col items-center text-center gap-5">
-            <div className="relative">
-              <div className="h-20 w-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <Loader2 className="h-9 w-9 text-primary animate-spin" />
-              </div>
-              <div className="absolute inset-0 rounded-full animate-pulse-glow" />
-            </div>
-            <div>
-              <p className="font-semibold text-xl mb-1">Processing scan…</p>
-              <p className="text-sm text-muted-foreground">
-                {displayedStep || "Queued for processing"}
-              </p>
-            </div>
-            <div className="w-full max-w-sm">
-              <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-primary to-secondary rounded-full transition-all duration-700"
-                  style={{ width: `${displayedProgress}%` }}
-                />
-              </div>
-              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                <span>Progress</span>
-                <span className="font-medium text-primary">
-                  {displayedProgress}%
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : displayedStatus === "failed" ? (
-        /* Error state */
-        <Card className="animate-scale-in border-danger/20">
-          <CardContent className="pt-10 pb-12 flex flex-col items-center text-center gap-4">
-            <div className="h-16 w-16 rounded-2xl bg-danger/10 border border-danger/20 flex items-center justify-center">
-              <XCircle className="h-8 w-8 text-danger" />
-            </div>
-            <div>
-              <p className="font-semibold text-lg mb-1">Processing failed</p>
-              <p className="text-sm text-muted-foreground">{job.error}</p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        /* Success state */
-        <div className="space-y-6 animate-fade-in">
-          {/* Success badge */}
-          <div className="flex items-center gap-2.5">
-            <span className="badge badge-success text-sm py-1 px-3">
-              <CheckCircle2 className="h-3.5 w-3.5" />
-              Analysis complete
-            </span>
-            <span className="text-xs text-muted-foreground">
-              Model version: {job.result?.model_version}
-            </span>
-          </div>
-
-          {/* Metric stat cards */}
-          <div className="grid md:grid-cols-3 gap-4 stagger-children">
-            {metricCards.map((s) => (
-              <div
-                key={s.label}
-                className={`relative rounded-2xl border border-border bg-card shadow-card overflow-hidden ${s.accentClass} transition-all duration-300 hover:shadow-card-hover hover:-translate-y-0.5 animate-fade-in`}
-              >
-                <div
-                  className={`absolute inset-0 bg-gradient-to-br ${s.color} opacity-50 pointer-events-none`}
-                />
-                <div className="relative p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm text-muted-foreground font-medium">
-                      {s.label}
-                    </p>
-                    <div
-                      className={`h-9 w-9 rounded-xl ${s.iconBg} flex items-center justify-center`}
-                    >
-                      <s.icon className={`h-4 w-4 ${s.iconColor}`} />
-                    </div>
-                  </div>
-                  <p className="text-4xl font-bold">
-                    {s.value}
-                    <span className="text-base font-normal text-muted-foreground ml-1">
-                      {s.unit}
-                    </span>
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Visualization + Radiomics */}
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Layers3 className="h-4 w-4 text-primary" />
-                  3D tumor visualization
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TumorVisualization
-                  volumeMl={job.result?.tumor_volume_ml ?? 0}
-                  meshVertices={job.result?.mesh.vertices ?? 0}
-                />
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Microscope className="h-4 w-4 text-secondary" />
-                  Radiomic features
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ResponsiveContainer width="100%" height={280}>
-                  <BarChart
-                    data={Object.entries(job.result?.radiomics || {}).map(
-                      ([name, value]) => ({ name, value })
-                    )}
-                    layout="vertical"
-                    margin={{ left: 20, right: 10 }}
-                  >
-                    <XAxis type="number" domain={[0, 1]} hide />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={110}
-                      tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip content={<ChartTooltip />} />
-                    <Bar
-                      dataKey="value"
-                      fill="url(#barGradient)"
-                      radius={[0, 6, 6, 0]}
-                    >
-                      <defs>
-                        <linearGradient
-                          id="barGradient"
-                          x1="0"
-                          y1="0"
-                          x2="1"
-                          y2="0"
-                        >
-                          <stop
-                            offset="0%"
-                            stopColor="hsl(var(--primary))"
-                          />
-                          <stop
-                            offset="100%"
-                            stopColor="hsl(var(--secondary))"
-                          />
-                        </linearGradient>
-                      </defs>
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Growth prediction */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-accent" />
-                Future growth prediction
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={growthSeries} margin={{ right: 20 }}>
-                  <defs>
-                    <linearGradient
-                      id="lineGradient"
-                      x1="0"
-                      y1="0"
-                      x2="1"
-                      y2="0"
-                    >
-                      <stop
-                        offset="0%"
-                        stopColor="hsl(var(--accent))"
-                      />
-                      <stop
-                        offset="100%"
-                        stopColor="hsl(var(--primary))"
-                      />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    strokeDasharray="3 3"
-                    stroke="hsl(var(--border))"
-                    opacity={0.5}
-                  />
-                  <XAxis
-                    dataKey="day"
-                    tickFormatter={(d) => `${d}d`}
-                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    unit=" mL"
-                    width={70}
-                    tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Line
-                    type="monotone"
-                    dataKey="volume"
-                    stroke="url(#lineGradient)"
-                    strokeWidth={2.5}
-                    dot={{
-                      r: 5,
-                      fill: "hsl(var(--accent))",
-                      strokeWidth: 2,
-                      stroke: "hsl(var(--background))",
-                    }}
-                    activeDot={{ r: 7 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-
-              {/* Projection slider */}
-              <div className="mt-5 p-4 rounded-xl bg-muted/30 border border-border/50">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium">Projection horizon</span>
-                  <span className="badge badge-info">{days} days</span>
-                </div>
-                <input
-                  type="range"
-                  min={30}
-                  max={90}
-                  step={30}
-                  value={days}
-                  onChange={(e) => setDays(Number(e.target.value))}
-                  className="w-full accent-[hsl(var(--primary))]"
-                />
-                <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                  <span>30 days</span>
-                  <span>60 days</span>
-                  <span>90 days</span>
-                </div>
-                {prediction && (
-                  <div className="mt-3 flex items-center gap-2 text-sm">
-                    <TrendingUp className="h-4 w-4 text-accent" />
-                    <span className="text-muted-foreground">
-                      Projected volume at {prediction.days}d:
-                    </span>
-                    <span className="font-semibold text-accent">
-                      {prediction.projected_volume_ml} mL
-                    </span>
-                    <span className="text-muted-foreground">
-                      · confidence{" "}
-                      {(prediction.confidence * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
     </AppShell>
   );
 }

@@ -1,282 +1,270 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { useRequireAuth } from "@/lib/use-require-auth";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { api, Patient } from "@/lib/api";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { api, ApiError } from "@/lib/api";
-import {
-  UploadCloud,
-  FileText,
-  Loader2,
-  AlertCircle,
-  Cpu,
-  ScanLine,
-} from "lucide-react";
+import { Upload, File as FileIcon, X, Check, Brain, Search, Users, Activity } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Input } from "@/components/ui/input";
 
-const MODALITIES = ["T1", "T1ce", "T2", "FLAIR"];
-
-function UploadForm() {
-  const { ready } = useRequireAuth();
+export default function UploadPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const patientIdParam = searchParams.get("patient");
-
-  const [patientId, setPatientId] = useState<string>(patientIdParam || "");
-  const [modality, setModality] = useState("T1");
-  const [visitLabel, setVisitLabel] = useState("Baseline");
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [patientId, setPatientId] = useState("");
+  const [search, setSearch] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [step, setStep] = useState(1); // 1: Select Patient, 2: Upload File, 3: Confirm
 
-  const { data: patients } = useQuery({
-    queryKey: ["patients"],
-    queryFn: () => api.patients.list(),
-    enabled: ready,
-  });
+  useEffect(() => {
+    api.patients.list().then(setPatients).catch(console.error);
+  }, []);
 
-  const uploadMutation = useMutation({
-    mutationFn: () => {
-      if (!file) throw new Error("Select a file first");
-      return api.scans.upload(Number(patientId), file, modality, visitLabel);
-    },
-    onSuccess: (job) => {
-      router.push(`/results/${job.id}`);
-    },
-    onError: (err) => {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : (err as Error)?.message || "Upload failed"
-      );
-    },
-  });
-
-  const handleFile = (f: File | null) => {
-    if (!f) return;
-    const lower = f.name.toLowerCase();
-    if (
-      !lower.endsWith(".nii") &&
-      !lower.endsWith(".nii.gz") &&
-      !lower.endsWith(".zip")
-    ) {
-      setError("Only .nii, .nii.gz, or .zip files are supported");
-      return;
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+  const handleDragLeave = () => setIsDragging(false);
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files?.[0]) {
+      setFile(e.dataTransfer.files[0]);
+      setStep(3);
     }
-    setError(null);
-    setFile(f);
   };
 
-  if (!ready) return null;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.[0]) {
+      setFile(e.target.files[0]);
+      setStep(3);
+    }
+  };
 
-  const selectClass =
-    "h-11 w-full rounded-xl border border-border bg-muted/50 px-4 text-sm outline-none transition-all duration-200 focus:border-primary/60 focus:ring-3 focus:ring-primary/15 cursor-pointer";
+  const handleUpload = async () => {
+    if (!file || !patientId) return;
+    setUploading(true);
+    try {
+      const res = await api.scans.upload(patientId, file);
+      // Wait a moment for UX
+      setTimeout(() => {
+        router.push(`/results/${res.scan_id}`);
+      }, 800);
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed");
+      setUploading(false);
+    }
+  };
+
+  const filteredPatients = patients.filter(p => 
+    p.medical_record_number.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const selectedPatientData = patients.find(p => p.id === patientId);
 
   return (
     <AppShell>
-      {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-1">
-          <ScanLine className="h-4 w-4 text-primary" />
-          <span className="text-xs font-semibold uppercase tracking-widest text-primary">
-            AI Processing
-          </span>
+      <div className="max-w-3xl mx-auto space-y-8 pb-12">
+        <div className="text-center mb-10">
+          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 text-primary mb-4 shadow-glow-sm">
+            <Upload className="h-8 w-8" />
+          </motion.div>
+          <motion.h1 initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }} className="text-3xl font-bold tracking-tight">New Scan Analysis</motion.h1>
+          <motion.p initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.2 }} className="text-muted-foreground mt-2">Upload a NIfTI file to run the segmentation pipeline.</motion.p>
         </div>
-        <h1 className="text-3xl font-bold">Upload MRI</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Upload a scan to start automated segmentation and analysis
-        </p>
-      </div>
 
-      <div className="max-w-2xl">
-        <Card className="animate-fade-in shadow-card">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-primary" />
-              New scan submission
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            {/* Patient select */}
-            <div>
-              <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                Patient <span className="text-danger">*</span>
-              </label>
-              <select
-                className={selectClass}
-                value={patientId}
-                onChange={(e) => setPatientId(e.target.value)}
-              >
-                <option value="">Select a patient</option>
-                {patients?.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.full_name} ({p.mrn})
-                  </option>
-                ))}
-              </select>
+        {/* Wizard Progress */}
+        <div className="flex items-center justify-center max-w-lg mx-auto mb-10 relative">
+          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-border/50 -z-10" />
+          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-1 bg-primary transition-all duration-500 -z-10" style={{ width: `${(step - 1) * 50}%` }} />
+          
+          {[1, 2, 3].map((s) => (
+            <div key={s} className="flex-1 flex justify-center relative">
+              <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm transition-all duration-300 ${
+                step === s ? 'bg-primary text-primary-foreground shadow-glow-sm scale-110' : 
+                step > s ? 'bg-primary text-primary-foreground' : 'bg-card border-2 border-border text-muted-foreground'
+              }`}>
+                {step > s ? <Check className="h-5 w-5" /> : s}
+              </div>
+              <div className="absolute -bottom-6 w-max text-xs font-medium text-muted-foreground">
+                {s === 1 ? 'Patient' : s === 2 ? 'Upload' : 'Confirm'}
+              </div>
             </div>
+          ))}
+        </div>
 
-            {/* Modality + visit label */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                  Modality
-                </label>
-                <select
-                  className={selectClass}
-                  value={modality}
-                  onChange={(e) => setModality(e.target.value)}
+        <Card className="overflow-hidden border-border/50 shadow-float bg-card/50 backdrop-blur-xl">
+          <CardContent className="p-0">
+            <AnimatePresence mode="wait">
+              {/* STEP 1: SELECT PATIENT */}
+              {step === 1 && (
+                <motion.div
+                  key="step1"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="p-8"
                 >
-                  {MODALITIES.map((m) => (
-                    <option key={m} value={m}>
-                      {m}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                  Visit label
-                </label>
-                <input
-                  className={selectClass}
-                  value={visitLabel}
-                  onChange={(e) => setVisitLabel(e.target.value)}
-                  placeholder="e.g. 3-month follow-up"
-                />
-              </div>
-            </div>
-
-            {/* Drop zone */}
-            <div>
-              <label className="text-sm font-medium mb-2 block text-muted-foreground">
-                MRI file <span className="text-danger">*</span>
-              </label>
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  handleFile(e.dataTransfer.files?.[0] || null);
-                }}
-                className={`relative rounded-2xl border-2 border-dashed p-10 text-center transition-all duration-300 ${
-                  dragOver
-                    ? "border-primary bg-primary/5 shadow-inner-glow"
-                    : file
-                    ? "border-accent/50 bg-accent/5"
-                    : "border-border hover:border-primary/40 hover:bg-muted/30"
-                }`}
-              >
-                {file ? (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="h-12 w-12 rounded-xl bg-accent/15 border border-accent/25 flex items-center justify-center">
-                      <FileText className="h-6 w-6 text-accent" />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">{file.name}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB · Ready to upload
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setFile(null)}
-                      className="text-xs text-muted-foreground hover:text-danger transition-colors underline"
-                    >
-                      Remove file
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${dragOver ? "bg-primary/20 scale-110" : "bg-muted"}`}>
-                      <UploadCloud className={`h-7 w-7 transition-colors duration-300 ${dragOver ? "text-primary" : "text-muted-foreground"}`} />
-                    </div>
-                    <div>
-                      <p className="font-medium text-sm">
-                        Drop your MRI file here
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        Supports .nii, .nii.gz, .zip
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <label className="absolute inset-0 cursor-pointer">
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept=".nii,.gz,.zip"
-                    onChange={(e) => handleFile(e.target.files?.[0] || null)}
-                  />
-                </label>
-              </div>
-
-              {!file && (
-                <p className="text-xs text-center text-muted-foreground mt-2">
-                  or{" "}
-                  <label className="text-primary font-medium cursor-pointer hover:underline">
-                    browse files
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".nii,.gz,.zip"
-                      onChange={(e) => handleFile(e.target.files?.[0] || null)}
+                  <h3 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" /> Select Patient
+                  </h3>
+                  
+                  <div className="relative mb-6">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                    <Input 
+                      placeholder="Search MRN..." 
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      className="pl-10 h-12 text-base"
                     />
+                  </div>
+                  
+                  <div className="max-h-[300px] overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                    {filteredPatients.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">No patients found.</div>
+                    ) : (
+                      filteredPatients.map(p => (
+                        <div 
+                          key={p.id}
+                          onClick={() => { setPatientId(p.id); setStep(2); }}
+                          className="p-4 rounded-xl border border-border/50 hover:border-primary/50 hover:bg-primary/5 cursor-pointer flex justify-between items-center transition-all group"
+                        >
+                          <div>
+                            <p className="font-semibold">{p.medical_record_number}</p>
+                            <p className="text-xs text-muted-foreground font-mono">ID: {p.id}</p>
+                          </div>
+                          <div className="h-8 w-8 rounded-full bg-background border border-border flex items-center justify-center group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-colors">
+                            <ChevronRight className="h-4 w-4" />
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </motion.div>
+              )}
+
+              {/* STEP 2: UPLOAD FILE */}
+              {step === 2 && (
+                <motion.div
+                  key="step2"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="p-8"
+                >
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-semibold flex items-center gap-2">
+                      <Upload className="h-5 w-5 text-primary" /> Upload MRI Scan
+                    </h3>
+                    <Button variant="ghost" size="sm" onClick={() => setStep(1)}>Change Patient</Button>
+                  </div>
+
+                  <div className="mb-4 p-3 rounded-xl bg-muted/50 border border-border flex items-center gap-3">
+                     <div className="h-10 w-10 rounded-lg bg-background flex items-center justify-center shadow-sm">
+                       <User2 className="h-5 w-5 text-primary" />
+                     </div>
+                     <div>
+                       <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Selected Patient</p>
+                       <p className="font-medium">{selectedPatientData?.medical_record_number}</p>
+                     </div>
+                  </div>
+
+                  <label
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`
+                      relative flex flex-col items-center justify-center w-full h-64 mt-6
+                      border-2 border-dashed rounded-2xl cursor-pointer
+                      transition-all duration-300 overflow-hidden
+                      ${isDragging ? 'border-primary bg-primary/10 scale-[1.02]' : 'border-border hover:border-primary/50 hover:bg-muted/30'}
+                    `}
+                  >
+                    {isDragging && (
+                      <div className="absolute inset-0 z-0 opacity-20 pointer-events-none">
+                         <ParticleField particleCount={30} connectionDistance={100} />
+                      </div>
+                    )}
+                    
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6 relative z-10">
+                      <div className={`p-4 rounded-full mb-4 transition-colors ${isDragging ? 'bg-primary text-primary-foreground shadow-glow' : 'bg-muted text-muted-foreground'}`}>
+                        <Brain className={`h-8 w-8 ${isDragging ? 'animate-pulse' : ''}`} />
+                      </div>
+                      <p className="mb-2 text-lg font-semibold">
+                        <span className="text-primary">Click to upload</span> or drag and drop
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        NIfTI files (.nii or .nii.gz)
+                      </p>
+                    </div>
+                    <input type="file" className="hidden" accept=".nii,.nii.gz" onChange={handleFileChange} />
                   </label>
-                </p>
+                </motion.div>
               )}
-            </div>
 
-            {/* Error */}
-            {error && (
-              <div className="flex items-start gap-2.5 text-danger text-sm bg-danger/10 border border-danger/20 rounded-xl px-4 py-3">
-                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
-                {error}
-              </div>
-            )}
+              {/* STEP 3: CONFIRM */}
+              {step === 3 && file && (
+                <motion.div
+                  key="step3"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="p-8 text-center"
+                >
+                  <div className="h-24 w-24 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center mb-6 relative shadow-inner-glow">
+                    <FileIcon className="h-10 w-10 text-primary" />
+                    <div className="absolute -top-2 -right-2 h-8 w-8 bg-success rounded-full flex items-center justify-center text-success-foreground border-4 border-card shadow-sm">
+                      <Check className="h-4 w-4" />
+                    </div>
+                  </div>
+                  
+                  <h3 className="text-2xl font-bold mb-2">Ready to analyze</h3>
+                  
+                  <div className="max-w-sm mx-auto glass rounded-xl p-4 mb-8 text-left">
+                     <div className="flex items-center gap-3 mb-3 pb-3 border-b border-border/50">
+                        <FileIcon className="h-8 w-8 text-muted-foreground" />
+                        <div className="overflow-hidden">
+                          <p className="font-medium truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">{(file.size / (1024 * 1024)).toFixed(2)} MB • NIfTI Scan</p>
+                        </div>
+                     </div>
+                     <div className="flex items-center gap-3">
+                        <User2 className="h-8 w-8 p-1.5 bg-muted rounded-lg text-muted-foreground" />
+                        <div>
+                          <p className="font-medium">{selectedPatientData?.medical_record_number}</p>
+                          <p className="text-xs text-muted-foreground">Target Patient</p>
+                        </div>
+                     </div>
+                  </div>
 
-            {/* Submit */}
-            <Button
-              size="lg"
-              className="w-full h-12 rounded-xl shadow-glow-sm"
-              disabled={!file || !patientId || uploadMutation.isPending}
-              onClick={() => uploadMutation.mutate()}
-            >
-              {uploadMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Uploading & queuing AI job…
-                </>
-              ) : (
-                <>
-                  <UploadCloud className="h-4 w-4" />
-                  Upload & start AI processing
-                </>
+                  <div className="flex justify-center gap-3">
+                    <Button variant="outline" size="lg" onClick={() => { setFile(null); setStep(2); }} disabled={uploading}>
+                      Change file
+                    </Button>
+                    <Button size="lg" onClick={handleUpload} disabled={uploading} className="shadow-glow min-w-[160px]">
+                      {uploading ? (
+                        <>
+                          <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin mr-2" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Activity className="h-5 w-5 mr-2" /> Start Analysis
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </motion.div>
               )}
-            </Button>
-
-            <p className="text-xs text-center text-muted-foreground">
-              Files are processed asynchronously. You&apos;ll be redirected to the results page when processing begins.
-            </p>
+            </AnimatePresence>
           </CardContent>
         </Card>
       </div>
     </AppShell>
-  );
-}
-
-export default function UploadPage() {
-  return (
-    <Suspense fallback={null}>
-      <UploadForm />
-    </Suspense>
   );
 }
