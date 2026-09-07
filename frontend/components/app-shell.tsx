@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         {/* Toggle collapse button */}
         <button 
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute right-0 top-[22px] translate-x-1/2 h-6 w-6 rounded-full bg-border border border-background flex items-center justify-center z-50 hover:bg-primary hover:text-primary-foreground hover:scale-110 transition-all"
+          className="absolute right-2 top-[22px] translate-x-1/2 h-6 w-6 rounded-full bg-border border border-background flex items-center justify-center z-50 hover:bg-primary hover:text-primary-foreground hover:scale-110 transition-all"
         >
           {sidebarCollapsed ? <PanelLeftOpen className="h-3 w-3" /> : <PanelLeftClose className="h-3 w-3" />}
         </button>
