@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth-store";
+import { useRequireAuth } from "@/lib/use-require-auth";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { MobileNav } from "@/components/mobile-nav";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -31,6 +32,7 @@ const NAV = [
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { ready } = useRequireAuth();
   const { user, logout } = useAuthStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -45,6 +47,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return { href, label: displayLabel };
   });
 
+  if (!ready) return null;
+
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-background">
       {/* ── Mobile top bar ────────────────────────────────────────── */}
@@ -55,12 +59,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <span className="font-bold text-sm gradient-text">OncoTwin</span>
         </div>
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="p-2 rounded-xl text-muted-foreground hover:text-foreground bg-muted/50 transition-colors"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+        <Tooltip content="Open navigation" side="left">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            aria-label="Open navigation"
+            className="p-2 rounded-xl text-muted-foreground hover:text-foreground bg-muted/50 transition-colors"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </Tooltip>
       </div>
 
       <MobileNav open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
@@ -72,12 +79,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         className="hidden md:flex flex-col h-screen sticky top-0 border-r border-border/50 glass-strong z-30 overflow-hidden relative"
       >
         {/* Toggle collapse button */}
-        <button 
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute right-10 top-[22px] translate-x-1/2 h-6 w-6 rounded-full bg-border border border-background flex items-center justify-center z-50 hover:bg-primary hover:text-primary-foreground hover:scale-110 transition-all"
-        >
-          {sidebarCollapsed ? <PanelLeftOpen className="h-3 w-3" /> : <PanelLeftClose className="h-3 w-3" />}
-        </button>
+        <Tooltip content={sidebarCollapsed ? "Expand navigation" : "Collapse navigation"} side="left">
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            aria-label={sidebarCollapsed ? "Expand navigation" : "Collapse navigation"}
+            className="absolute right-10 top-[22px] translate-x-1/2 h-6 w-6 rounded-full bg-border border border-background flex items-center justify-center z-50 hover:bg-primary hover:text-primary-foreground hover:scale-110 transition-all"
+          >
+            {sidebarCollapsed ? <PanelLeftOpen className="h-3 w-3" /> : <PanelLeftClose className="h-3 w-3" />}
+          </button>
+        </Tooltip>
 
         {/* Logo & Theme Toggle */}
         <div className="flex items-center justify-between px-5 py-5 border-b border-border/50 h-[73px]">

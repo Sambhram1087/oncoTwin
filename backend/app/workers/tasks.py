@@ -45,6 +45,7 @@ def _run_job_sync_wrapper(job_id: int) -> None:
 
 async def run_processing_job(job_id: int) -> None:
     db: Session = SessionLocal()
+    start_time = time.time()
     try:
         job = db.query(Job).filter(Job.id == job_id).first()
         if not job:
@@ -54,8 +55,9 @@ async def run_processing_job(job_id: int) -> None:
         db.commit()
         await manager.broadcast(job_id, {"status": "running", "progress": 0, "step": "starting"})
 
+        # Shorten sleep for more realistic feedback with real model
         for progress, step_label in PROGRESS_STEPS:
-            time.sleep(0.6)  # simulate compute time
+            time.sleep(0.2)  
             job.progress = progress
             db.commit()
             await manager.broadcast(
@@ -65,10 +67,14 @@ async def run_processing_job(job_id: int) -> None:
         scan = job.scan
         model = get_active_model()
         result = model.predict(scan.storage_path, scan.modality)
+        
+        end_time = time.time()
+        duration_ms = int((end_time - start_time) * 1000)
 
         job.status = "complete"
         job.progress = 100
         job.result = result
+        job.processing_duration_ms = duration_ms
         db.commit()
 
         await manager.broadcast(
@@ -77,6 +83,10 @@ async def run_processing_job(job_id: int) -> None:
     except Exception as exc:  # pragma: no cover - defensive
         job.status = "failed"
         job.error = str(exc)
+        
+        end_time = time.time()
+        job.processing_duration_ms = int((end_time - start_time) * 1000)
+        
         db.commit()
         await manager.broadcast(job_id, {"status": "failed", "error": str(exc)})
     finally:

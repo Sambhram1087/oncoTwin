@@ -11,7 +11,7 @@ services:
     environment:
       - DATABASE_URL=sqlite:///./oncotwin.db
       - JWT_SECRET=dev-secret-change-me-in-production
-      - CORS_ORIGINS=["http://localhost:3000"]
+      - CORS_ORIGINS=["http://localhost:3000", "http://127.0.0.1:3000"]
     restart: unless-stopped
 
   frontend:

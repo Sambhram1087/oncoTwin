@@ -55,6 +55,22 @@ async function request<T>(
   return res.json() as Promise<T>;
 }
 
+async function requestBlob(path: string): Promise<Blob> {
+  const token = getToken();
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  } catch {
+    throw new ApiError(0, "Unable to connect to backend server.");
+  }
+  if (!res.ok) {
+    throw new ApiError(res.status, "Unable to load scan preview");
+  }
+  return res.blob();
+}
+
 // ---- Types matching backend schemas --------------------------------
 export interface User {
   id: number;
@@ -104,10 +120,46 @@ export interface Job {
   updated_at: string;
 }
 
-export interface GrowthPrediction {
-  days: number;
+export interface GrowthPredictionTrajectoryPoint {
+  day: number;
   projected_volume_ml: number;
-  confidence: number;
+  upper_bound: number;
+  lower_bound: number;
+}
+
+export interface GrowthPrediction {
+  trajectory: GrowthPredictionTrajectoryPoint[];
+}
+
+export interface DashboardStats {
+  total_patients: number;
+  total_scans: number;
+  completed_jobs: number;
+  pending_jobs: number;
+  failed_jobs: number;
+  avg_processing_time_ms: number | null;
+  model_version: string | null;
+}
+
+export interface RecentActivityItem {
+  id: number;
+  patient_id: number;
+  patient_mrn: string;
+  patient_name: string;
+  modality: string;
+  status: string;
+  volume_ml: number | null;
+  confidence: number | null;
+  created_at: string;
+}
+
+export interface RecentActivityResponse {
+  activities: RecentActivityItem[];
+}
+
+export interface ChartDataPoint {
+  name: string;
+  value: number;
 }
 
 // ---- API functions ---------------------------------------------------
@@ -160,9 +212,24 @@ export const api = {
   },
   jobs: {
     get: (id: number) => request<Job>(`/api/v1/jobs/${id}`),
+    preview: (id: number, axis = "axial", slicePosition = 50) =>
+      requestBlob(`/api/v1/jobs/${id}/preview?axis=${axis}&slice_position=${slicePosition}`),
   },
   predict: {
     growth: (jobId: number, days: number) =>
       request<GrowthPrediction>(`/api/v1/predict/${jobId}?days=${days}`),
+  },
+  dashboard: {
+    stats: () => request<DashboardStats>("/api/v1/dashboard/stats"),
+    recentActivity: () =>
+      request<RecentActivityResponse>("/api/v1/dashboard/recent-activity"),
+  },
+  analytics: {
+    volumeDistribution: () =>
+      request<ChartDataPoint[]>("/api/v1/analytics/volume-distribution"),
+    modalityBreakdown: () =>
+      request<ChartDataPoint[]>("/api/v1/analytics/modality-breakdown"),
+    confidenceHistogram: () =>
+      request<ChartDataPoint[]>("/api/v1/analytics/confidence-histogram"),
   },
 };

@@ -1,4 +1,5 @@
 # Backend
+.venv/
 backend/.venv/
 backend/__pycache__/
 backend/**/__pycache__/
@@ -7,6 +8,7 @@ backend/test_oncotwin.db
 backend/storage/
 backend/sample_data/
 backend/.env
+/storage/
 
 # Frontend
 frontend/node_modules/

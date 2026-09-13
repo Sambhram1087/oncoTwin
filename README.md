@@ -10,7 +10,7 @@
 **OncoTwin** is a full-stack, end-to-end neuro-oncology digital twin application. It simulates the clinical lifecycle of brain tumor analysis: **User Authentication ➔ Patient Management ➔ MRI Upload & Validation ➔ Realtime WebSocket-driven AI Segmentation ➔ Radiomics Analytics ➔ Growth Prediction ➔ Interactive 3D Visualizations**.
 
 > [!NOTE]
-> **Production-Ready Architecture, Modular Mock AI Model**: Every button calls real REST/WebSocket API endpoints backed by a database (SQLite local, zero-config switch to Postgres/Supabase). The AI engine uses a modular, deterministic pipeline returning schema-compliant data in the exact contract required by medical AI frameworks like MONAI.
+> **Clinical review architecture with transparent model status**: Every workflow calls real REST/WebSocket API endpoints backed by a database. Uploaded NIfTI volumes are rendered as authenticated axial reference slices in the report. The current local model is a deterministic fallback until a validated clinical segmentation model is configured; results are decision support, not a standalone diagnosis.
 
 ---
 
@@ -22,7 +22,7 @@
 - ⚡ **Realtime AI Pipeline Execution**: Asynchronous job queue with streaming status updates, progress percentages, and log messages delivered over WebSockets (`/ws/jobs/{job_id}`).
 - 📊 **Segmentation & Radiomics**: Automated calculations of tumor volume ($\text{cm}^3$), surface area, sphericity, confidence scores, and sub-region breakdown (ET, ED, NCR/NET).
 - 📈 **Digital Twin Growth Modeling**: Interactive trajectory modeling projecting tumor growth across 30, 60, and 90-day intervals.
-- 🧊 **3D Tumor Visualization**: Interactive render component designed for volumetric display and mesh stat inspection.
+- 🧠 **Clinical Imaging Review**: Authenticated axial reference slice rendered directly from the uploaded NIfTI volume, with orientation and source-quality context.
 - 🎨 **Modern UX/UI Design**: Responsive UI with dark/light mode toggle, dynamic loading skeletons, glassmorphism aesthetics, and smooth transitions.
 - 🧪 **Automated Testing Suite**: End-to-end pytest test coverage for authentication, patient management, scan uploads, and inference workflows.
 
@@ -96,6 +96,16 @@ docker compose up --build
 
 ### Option B: Manual Local Setup
 
+#### One-command startup
+
+From the repository root, run:
+
+```bash
+bash start-local.sh
+```
+
+This creates or reuses `.venv`, installs backend and frontend dependencies, creates local environment files when needed, and starts both services.
+
 #### 1. Backend Setup
 
 ```bash
@@ -135,8 +145,8 @@ npm run dev
 
 > [!TIP]
 > **Demo Account Credentials**:
-> - **Email**: `demo@oncotwin.ai`
-> - **Password**: `demopassword123`
+> - **Email**: `demo@oncotwin.com`
+> - **Password**: `OncoTwinDemo2026!`
 
 ---
 

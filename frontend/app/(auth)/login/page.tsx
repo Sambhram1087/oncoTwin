@@ -31,6 +31,7 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<FormValues>({ resolver: zodResolver(schema) });
 
@@ -227,6 +228,18 @@ export default function LoginPage() {
                     </span>
                   )}
                 </Button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setValue("email", "demo@oncotwin.com", { shouldValidate: true });
+                    setValue("password", "OncoTwinDemo2026!", { shouldValidate: true });
+                    setServerError(null);
+                  }}
+                  className="w-full text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  Use verified demo account
+                </button>
               </form>
 
               <div className="mt-8 text-center text-sm">

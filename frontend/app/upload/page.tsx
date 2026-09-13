@@ -22,7 +22,16 @@ export default function UploadPage() {
   const [step, setStep] = useState(1);
 
   useEffect(() => {
-    api.patients.list().then(setPatients).catch(console.error);
+    api.patients.list().then((loadedPatients) => {
+      setPatients(loadedPatients);
+      const requestedPatientId = Number(
+        new URLSearchParams(window.location.search).get("patientId")
+      );
+      if (loadedPatients.some((patient) => patient.id === requestedPatientId)) {
+        setPatientId(requestedPatientId);
+        setStep(2);
+      }
+    }).catch(console.error);
   }, []);
 
   const handleDragOver = (e: React.DragEvent) => {

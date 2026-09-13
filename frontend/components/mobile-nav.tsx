@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useAuthStore } from "@/lib/auth-store";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { Tooltip } from "@/components/ui/tooltip";
 import {
   Brain,
   LayoutDashboard,
@@ -64,12 +65,15 @@ export function MobileNav({
               </div>
               <div className="flex items-center gap-2">
                 <ThemeToggle />
-                <button
-                  onClick={onClose}
-                  className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <Tooltip content="Close navigation" side="bottom">
+                  <button
+                    onClick={onClose}
+                    aria-label="Close navigation"
+                    className="p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </Tooltip>
               </div>
             </div>
 

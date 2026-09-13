@@ -10,9 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
   User, Calendar, FileScan, ArrowLeft, Clock, 
-  Activity, AlertCircle, Eye
+  Activity, AlertCircle, Eye, Stethoscope, Hash, UserCheck, HeartPulse
 } from "lucide-react";
 import { motion } from "framer-motion";
+
+const SEX_LABELS: Record<string, string> = { M: "Male", F: "Female", O: "Other" };
 
 export default function PatientDetailPage() {
   const { id } = useParams() as { id: string };
@@ -85,31 +87,22 @@ export default function PatientDetailPage() {
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to Registry
         </Link>
 
+        {/* Patient Profile Card */}
         <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-card to-primary/5 neon-card">
           <CardContent className="p-8">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-6">
               <div className="flex items-center gap-5">
-                <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner-glow relative">
+                <div className="h-20 w-20 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-inner-glow relative flex-shrink-0">
                   <User className="h-10 w-10" />
                   <div className="absolute -bottom-1 -right-1 h-5 w-5 bg-background rounded-full flex items-center justify-center">
                     <div className="h-3 w-3 bg-success rounded-full" />
                   </div>
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold mb-1">{patient?.mrn}</h1>
-                  <p className="text-muted-foreground text-sm font-mono flex items-center gap-2">
-                    ID: {patient?.id}
+                  <h1 className="text-3xl font-bold mb-1">{patient?.full_name}</h1>
+                  <p className="text-muted-foreground font-mono flex items-center gap-2">
+                    <Hash className="h-4 w-4" /> MRN: {patient?.mrn} <span className="opacity-50">|</span> ID: {patient?.id}
                   </p>
-                  <div className="flex gap-2 mt-3">
-                    <Badge variant="neutral">
-                      <Calendar className="h-3 w-3 mr-1" />
-                      Added {new Date(patient?.created_at || "").toLocaleDateString()}
-                    </Badge>
-                    <Badge variant="info">
-                      <FileScan className="h-3 w-3 mr-1" />
-                      {scans.length} Scans
-                    </Badge>
-                  </div>
                 </div>
               </div>
 
@@ -127,13 +120,56 @@ export default function PatientDetailPage() {
                 </div>
               )}
             </div>
+
+            {/* Extended Patient Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-background/50 rounded-xl p-5 border border-border/50">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <UserCheck className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Sex</p>
+                    <p className="text-sm font-medium">{patient?.sex ? SEX_LABELS[patient.sex] || patient.sex : "Not specified"}</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Calendar className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Date of Birth</p>
+                    <p className="text-sm font-medium">{patient?.date_of_birth || "Not specified"}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <HeartPulse className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Diagnosis</p>
+                    <p className="text-sm font-medium">
+                      {patient?.diagnosis ? (
+                        <Badge variant="neutral" className="text-sm px-2 py-0.5 mt-1 block w-max">{patient.diagnosis}</Badge>
+                      ) : (
+                        "Not specified"
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Stethoscope className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Clinical Notes</p>
+                    <p className="text-sm text-foreground/90 whitespace-pre-wrap">{patient?.notes || "No notes available."}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
         <div>
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-semibold tracking-tight">Longitudinal Scans</h2>
-            <Link href="/upload">
+            <Link href={`/upload?patientId=${patient?.id}`}>
               <Button size="sm" className="shadow-glow-sm">
                 <UploadIcon className="h-4 w-4 mr-2" /> Upload New
               </Button>
@@ -148,7 +184,7 @@ export default function PatientDetailPage() {
                 <p className="text-muted-foreground text-sm max-w-sm mb-6">
                   Upload the first MRI timepoint for this patient to begin longitudinal tracking.
                 </p>
-                <Link href="/upload">
+                <Link href={`/upload?patientId=${patient?.id}`}>
                   <Button variant="outline">Upload Scan</Button>
                 </Link>
               </CardContent>
@@ -183,7 +219,7 @@ export default function PatientDetailPage() {
                       <div className="p-5 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <h3 className="font-semibold text-lg">Scan Timepoint</h3>
+                            <h3 className="font-semibold text-lg">{scan.visit_label || "Scan Timepoint"}</h3>
                             <Badge 
                               variant={status === 'complete' ? 'success' : status === 'failed' ? 'danger' : 'warning'}
                               pulse={status === 'running' || status === 'queued'}
@@ -196,6 +232,10 @@ export default function PatientDetailPage() {
                             <span className="flex items-center gap-1.5">
                               <Clock className="h-4 w-4 opacity-70" />
                               {new Date(scan.created_at).toLocaleString()}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <Activity className="h-4 w-4 opacity-70" />
+                              Modality: {scan.modality}
                             </span>
                             <span className="flex items-center gap-1.5 font-mono text-xs">
                               ID: {scan.id}

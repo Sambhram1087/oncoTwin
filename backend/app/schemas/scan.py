@@ -9,6 +9,7 @@ class ScanResponse(BaseModel):
     modality: str
     original_filename: str
     visit_label: str | None
+    file_size_bytes: int | None = None
     created_at: datetime
     job_id: int | None = None
 
@@ -23,6 +24,7 @@ class JobResponse(BaseModel):
     progress: int
     result: dict[str, Any] | None
     error: str | None
+    processing_duration_ms: int | None = None
     created_at: datetime
     updated_at: datetime
 

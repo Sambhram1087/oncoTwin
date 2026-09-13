@@ -13,6 +13,7 @@ class Scan(Base):
     modality = Column(String, default="T1")  # T1 | T1ce | T2 | FLAIR
     original_filename = Column(String, nullable=False)
     storage_path = Column(String, nullable=False)
+    file_size_bytes = Column(Integer, nullable=True)
     visit_label = Column(String, nullable=True)  # e.g. "Baseline", "3-month follow-up"
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -31,6 +32,7 @@ class Job(Base):
     progress = Column(Integer, default=0)  # 0-100
     result = Column(JSON, nullable=True)  # segmentation/volume/confidence/radiomics
     error = Column(String, nullable=True)
+    processing_duration_ms = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

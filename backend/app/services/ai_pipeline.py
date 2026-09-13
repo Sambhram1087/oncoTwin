@@ -19,34 +19,22 @@ from __future__ import annotations
 
 import hashlib
 import random
+import logging
 from abc import ABC, abstractmethod
 from typing import Any
+
+logger = logging.getLogger("oncotwin.ai_pipeline")
 
 
 class SegmentationModel(ABC):
     @abstractmethod
     def predict(self, file_path: str, modality: str) -> dict[str, Any]:
-        """Run inference on an MRI volume and return a result dict with the
-        contract:
-        {
-          "tumor_volume_ml": float,
-          "confidence": float,          # 0-1
-          "segmentation_mask_summary": {"voxel_count": int, "labels": [...]},
-          "radiomics": {feature_name: float, ...},
-          "mesh": {"vertices": int, "faces": int},  # for the 3D viewer
-        }
-        """
+        """Run inference on an MRI volume and return a result dict with the contract."""
         raise NotImplementedError
 
 
 class MockSegmentationModel(SegmentationModel):
-    """Deterministic-per-file demo model.
-
-    Uses a hash of the uploaded file's path + size to derive stable but
-    varied "results" so re-processing the same file always looks the same
-    (useful for demos and tests), while different files produce different
-    numbers.
-    """
+    """Deterministic-per-file demo model."""
 
     RADIOMIC_FEATURES = [
         "sphericity",
@@ -84,30 +72,68 @@ class MockSegmentationModel(SegmentationModel):
                 "vertices": rng.randint(2000, 8000),
                 "faces": rng.randint(4000, 16000),
             },
-            "model_version": "mock-v1 (MONAI placeholder)",
+            "model_version": "mock-v1 (fallback)",
         }
 
 
 def get_active_model() -> SegmentationModel:
-    """Factory - swap the returned class to change the active model."""
-    return MockSegmentationModel()
+    """Factory - try to load trained model, fallback to mock."""
+    try:
+        from app.ml.model import TrainedSegmentationModel
+        return TrainedSegmentationModel()
+    except Exception as e:
+        logger.warning(f"Failed to load trained model, falling back to mock: {e}")
+        return MockSegmentationModel()
 
 
-def simulate_growth(
-    current_volume_ml: float, days: int, growth_rate_per_month: float = 0.06
-) -> dict[str, float]:
-    """Placeholder longitudinal growth projection.
-
-    Simple compounding growth model as a stand-in for a real predictive
-    model. Swap this function's body for a real model call later; the
-    signature (days in -> {"projected_volume_ml": ..., "confidence": ...})
-    is what the frontend slider depends on.
+def simulate_growth(current_volume_ml: float, days_target: int) -> dict[str, Any]:
+    """Gompertzian longitudinal growth projection.
+    
+    Generates a multi-point trajectory from day 0 to days_target.
+    Returns:
+        {
+            "trajectory": [
+                {"day": int, "projected_volume_ml": float, "upper_bound": float, "lower_bound": float},
+                ...
+            ]
+        }
     """
-    months = days / 30.0
-    projected = current_volume_ml * ((1 + growth_rate_per_month) ** months)
-    confidence = max(0.4, 0.9 - 0.15 * months)
+    # Gompertz model parameters (typical for brain tumors)
+    V0 = current_volume_ml
+    if V0 <= 0:
+        V0 = 1.0  # Avoid zero volume
+        
+    alpha = 0.05  # Initial specific growth rate
+    beta = 0.01   # Deceleration factor
+
+    trajectory = []
+    
+    # We want to return points for 0, 30, 60, 90... up to days_target, plus the exact days_target
+    points_to_eval = set([0, days_target])
+    for d in [30, 60, 90, 120, 180, 365]:
+        if d <= days_target:
+            points_to_eval.add(d)
+            
+    sorted_days = sorted(list(points_to_eval))
+    
+    for t in sorted_days:
+        months = t / 30.0
+        # Gompertz: V(t) = V0 * exp( (alpha/beta) * (1 - exp(-beta * t)) )
+        # Here we use months as the time unit 't' for typical growth rates
+        projected = V0 * (2.71828 ** ((alpha/beta) * (1 - (2.71828 ** (-beta * months)))))
+        
+        # Confidence interval widens over time (uncertainty)
+        uncertainty = 0.05 * months  # 5% uncertainty per month
+        upper_bound = projected * (1 + uncertainty)
+        lower_bound = projected * (1 - uncertainty)
+        
+        trajectory.append({
+            "day": t,
+            "projected_volume_ml": round(projected, 2),
+            "upper_bound": round(upper_bound, 2),
+            "lower_bound": round(lower_bound, 2)
+        })
+
     return {
-        "days": days,
-        "projected_volume_ml": round(projected, 2),
-        "confidence": round(confidence, 3),
+        "trajectory": trajectory
     }

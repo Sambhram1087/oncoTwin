@@ -1,12 +1,13 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import inspect, text
 import time
 import logging
 
 from app.core.config import get_settings
 from app.db.database import Base, engine
-from app.api.routes import auth, patients, upload, predict
+from app.api.routes import auth, patients, upload, predict, dashboard, analytics
 import app.models  # noqa: F401 - ensures models are registered on Base
 
 settings = get_settings()
@@ -16,6 +17,29 @@ logger = logging.getLogger("oncotwin")
 # Create tables (idempotent). For production Postgres, use Alembic
 # migrations instead - see README "Database migrations".
 Base.metadata.create_all(bind=engine)
+
+
+def _upgrade_local_schema():
+    """Add columns introduced after an existing local SQLite database was created."""
+    if engine.dialect.name != "sqlite":
+        return
+
+    columns_by_table = {
+        "scans": {"file_size_bytes": "INTEGER"},
+        "jobs": {"processing_duration_ms": "INTEGER"},
+    }
+    inspector = inspect(engine)
+    with engine.begin() as connection:
+        for table, columns in columns_by_table.items():
+            existing = {column["name"] for column in inspector.get_columns(table)}
+            for name, column_type in columns.items():
+                if name not in existing:
+                    connection.execute(
+                        text(f"ALTER TABLE {table} ADD COLUMN {name} {column_type}")
+                    )
+
+
+_upgrade_local_schema()
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -66,6 +90,8 @@ app.include_router(auth.router)
 app.include_router(patients.router)
 app.include_router(upload.router)
 app.include_router(predict.router)
+app.include_router(dashboard.router, prefix="/api/v1/dashboard", tags=["dashboard"])
+app.include_router(analytics.router, prefix="/api/v1/analytics", tags=["analytics"])
 
 
 @app.get("/", tags=["health"])
