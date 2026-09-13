@@ -17,7 +17,7 @@ if [[ ! -f frontend/.env.local ]]; then
   cp frontend/.env.example frontend/.env.local
 fi
 
-(cd backend && ../.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000) &
+(cd backend && ../.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload) &
 backend_pid=$!
 (cd frontend && npm install && npm run dev -- --hostname 0.0.0.0 --port 3000) &
 frontend_pid=$!

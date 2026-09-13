@@ -57,7 +57,7 @@ async def run_processing_job(job_id: int) -> None:
 
         # Shorten sleep for more realistic feedback with real model
         for progress, step_label in PROGRESS_STEPS:
-            time.sleep(0.2)  
+            await asyncio.sleep(0.2)
             job.progress = progress
             db.commit()
             await manager.broadcast(

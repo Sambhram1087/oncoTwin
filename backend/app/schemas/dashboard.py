@@ -1,9 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Any
 from datetime import datetime
 
 
 class DashboardStats(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())
+
     total_patients: int
     total_scans: int
     completed_jobs: int
