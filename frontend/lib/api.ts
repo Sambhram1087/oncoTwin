@@ -1,8 +1,12 @@
+const isDevelopment = process.env.NODE_ENV === "development";
+
 export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
+  (isDevelopment ? "http://localhost:8000" : "https://oncotwin-3tik.onrender.com");
 
 export const WS_BASE_URL =
-  process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
+  process.env.NEXT_PUBLIC_WS_URL?.replace(/\/$/, "") ||
+  (isDevelopment ? "ws://localhost:8000" : "wss://oncotwin-3tik.onrender.com");
 
 export class ApiError extends Error {
   status: number;
@@ -36,7 +40,9 @@ async function request<T>(
   } catch (err: any) {
     throw new ApiError(
       0,
-      `Unable to connect to backend server (${API_BASE_URL}). Please verify that the backend API server is running.`
+      API_BASE_URL
+        ? `Unable to connect to backend server (${API_BASE_URL}). Please verify that the backend API server is running.`
+        : "Backend API URL is not configured. Set NEXT_PUBLIC_API_URL in the Vercel project settings and redeploy."
     );
   }
 

@@ -213,12 +213,21 @@ Once trained, `app/ml/artifacts/model.joblib` is created and automatically loade
 
 ## 🌐 Deployment Instructions
 
-- **Frontend (Vercel)**: Connect repository, select root folder `frontend`, set `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL` environment variables in the Vercel project settings.
-- **Backend (Render / Railway)**: Deploy web service using `backend/Dockerfile`. Configure environment variables matching `backend/.env.example`.
-- **Database / Auth (Supabase)**: Provision PostgreSQL database, update `DATABASE_URL` in environment variables.
+- **Frontend (Vercel)**: Connect the repository, select `frontend` as the root directory, and add these Production environment variables:
+    ```env
+    NEXT_PUBLIC_API_URL=https://oncotwin-3tik.onrender.com
+    NEXT_PUBLIC_WS_URL=wss://oncotwin-3tik.onrender.com
+    ```
+    These values are embedded during the Vercel build, so redeploy the frontend after adding or changing them. Do not use `localhost` here: in a deployed browser, `localhost` means the visitor's computer.
+- **Backend (Render)**: Create a Web Service using `backend/Dockerfile`, set its health check or public URL, and configure the variables in `backend/.env.example`. Set `CORS_ORIGINS` to the exact Vercel URL, for example:
+    ```env
+    CORS_ORIGINS=["https://onco-twin-six.vercel.app"]
+    ```
+- **Persistent uploads**: `UPLOAD_DIR` uses the local filesystem by default. On Render, attach a persistent disk mounted at `/app/storage` and set `UPLOAD_DIR=/app/storage/uploads`; otherwise uploaded scans can disappear when the service restarts. The database also needs a persistent PostgreSQL service such as Supabase rather than the default SQLite file.
+- **Database / Auth (Supabase)**: Provision PostgreSQL and set `DATABASE_URL` on Render. The current app continues to use its built-in JWT auth; keep `JWT_SECRET` set to a long random production value.
 
 > [!TIP]
-> When deploying to Vercel + Render, set `NEXT_PUBLIC_API_URL=https://your-backend.onrender.com` in Vercel's environment settings and redeploy. The Render backend must have `CORS_ORIGINS` updated to include your Vercel frontend URL.
+> After deployment, open the Render URL in a browser and confirm it returns `{"name":"OncoTwin API","status":"ok"}`. Then log in to the Vercel site and upload a scan. If the upload request fails, check the browser Network tab for the request URL: it must start with your Render URL, never `localhost`.
 
 ---
 
@@ -236,9 +245,17 @@ Once trained, `app/ml/artifacts/model.joblib` is created and automatically loade
 4. **CORS error**: If the frontend domain is not listed in `CORS_ORIGINS`, update `backend/.env` and restart the backend.
 5. **Virtual environment**: `start-local.sh` uses the root-level `.venv`. When running the backend manually, activate `.venv` and run uvicorn from inside the `backend/` directory.
 
+### Uploads fail on the deployed site
+
+1. In Vercel, verify `NEXT_PUBLIC_API_URL` points to the Render HTTPS URL and `NEXT_PUBLIC_WS_URL` points to the same host with `wss://`.
+2. Redeploy Vercel after changing either variable because Next.js embeds `NEXT_PUBLIC_*` values at build time.
+3. In Render, verify `CORS_ORIGINS` contains the exact Vercel origin, with no trailing slash.
+4. Verify the Render service is running and its root URL returns the healthy response described above.
+5. Configure a Render persistent disk for `/app/storage` before relying on uploaded scans across restarts.
+
 ### WebSocket progress not updating
 
-The WebSocket endpoint is `ws://localhost:8000/api/v1/ws/jobs/{job_id}`. Verify:
+The WebSocket endpoint is `wss://your-backend.onrender.com/api/v1/ws/jobs/{job_id}` in production and `ws://localhost:8000/api/v1/ws/jobs/{job_id}` locally. Verify:
 - The backend is reachable via HTTP first (`/api/v1/health`).
 - No proxy or firewall is stripping WebSocket `Upgrade` headers.
 
