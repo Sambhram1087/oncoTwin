@@ -4,6 +4,7 @@ from sqlalchemy import func
 
 from app.db.database import get_db
 from app.models.scan import Scan, Job
+from app.models.patient import Patient
 from app.schemas.dashboard import ChartDataPoint
 from app.core.security import get_current_user
 from app.models.user import User
@@ -18,7 +19,13 @@ def get_volume_distribution(
     """Get tumor volume distribution data for charts."""
     # We'll pull all completed jobs and bucket them in Python for simplicity
     # In a real high-scale app, we'd do this in SQL
-    completed_jobs = db.query(Job.result).filter(Job.status == "complete").all()
+    completed_jobs = (
+        db.query(Job.result)
+        .join(Scan, Job.scan_id == Scan.id)
+        .join(Patient, Scan.patient_id == Patient.id)
+        .filter(Job.status == "complete", Patient.owner_id == current_user.id)
+        .all()
+    )
     
     # Define buckets
     buckets = {
@@ -55,7 +62,13 @@ def get_modality_breakdown(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """Get scan counts by modality."""
-    results = db.query(Scan.modality, func.count(Scan.id)).group_by(Scan.modality).all()
+    results = (
+        db.query(Scan.modality, func.count(Scan.id))
+        .join(Patient, Scan.patient_id == Patient.id)
+        .filter(Patient.owner_id == current_user.id)
+        .group_by(Scan.modality)
+        .all()
+    )
     return [ChartDataPoint(name=modality, value=count) for modality, count in results]
 
 
@@ -64,7 +77,13 @@ def get_confidence_histogram(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """Get AI confidence score distribution."""
-    completed_jobs = db.query(Job.result).filter(Job.status == "complete").all()
+    completed_jobs = (
+        db.query(Job.result)
+        .join(Scan, Job.scan_id == Scan.id)
+        .join(Patient, Scan.patient_id == Patient.id)
+        .filter(Job.status == "complete", Patient.owner_id == current_user.id)
+        .all()
+    )
     
     buckets = {
         "< 80%": 0,

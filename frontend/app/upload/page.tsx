@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
-import { api, Patient } from "@/lib/api";
+import { api, ApiError, Patient } from "@/lib/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ParticleField } from "@/components/ui/particle-field";
@@ -66,7 +66,7 @@ export default function UploadPage() {
       }, 800);
     } catch (err) {
       console.error(err);
-      alert("Upload failed");
+      alert(err instanceof ApiError ? `Upload failed: ${err.message}` : "Upload failed. Please try again.");
       setUploading(false);
     }
   };

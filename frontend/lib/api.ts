@@ -34,14 +34,21 @@ async function request<T>(
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
-  } catch (err: any) {
+  let res: Response | undefined;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+      if (![502, 503, 504].includes(res.status) || attempt === 2) break;
+    } catch {
+      if (attempt === 2) break;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 800 * (attempt + 1)));
+  }
+  if (!res) {
     throw new ApiError(
       0,
       API_BASE_URL
-        ? `Unable to connect to backend server (${API_BASE_URL}). Please verify that the backend API server is running.`
+        ? `Unable to connect to backend server (${API_BASE_URL}). The server may be waking up; please try again in a moment.`
         : "Backend API URL is not configured. Set NEXT_PUBLIC_API_URL in the Vercel project settings and redeploy."
     );
   }
