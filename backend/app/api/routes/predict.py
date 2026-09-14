@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.core.security import get_current_user
 from app.models.user import User
-from app.models.scan import Job
+from app.models.scan import Job, Scan
+from app.models.patient import Patient
 from app.services.ai_pipeline import simulate_growth
 
 router = APIRouter(prefix="/api/v1/predict", tags=["predict"])
@@ -17,7 +18,13 @@ def predict_growth(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = (
+        db.query(Job)
+        .join(Scan, Job.scan_id == Scan.id)
+        .join(Patient, Scan.patient_id == Patient.id)
+        .filter(Job.id == job_id, Patient.owner_id == current_user.id)
+        .first()
+    )
     if not job or not job.result:
         raise HTTPException(status_code=404, detail="Completed job not found")
 

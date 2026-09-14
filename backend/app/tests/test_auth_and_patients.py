@@ -143,3 +143,27 @@ def test_scan_upload_and_job_flow():
     )
     assert invalid_res.status_code == 400
     assert "Unsupported file type" in invalid_res.json()["detail"]
+
+
+def test_jobs_require_patient_ownership():
+    owner_token = _signup_and_login("job_owner@example.com")
+    other_token = _signup_and_login("job_other@example.com")
+    owner_headers = {"Authorization": f"Bearer {owner_token}"}
+    other_headers = {"Authorization": f"Bearer {other_token}"}
+
+    patient_res = client.post(
+        "/api/v1/patients",
+        json={"mrn": "MRN-OWNERSHIP-01", "full_name": "Owned Patient"},
+        headers=owner_headers,
+    )
+    patient_id = patient_res.json()["id"]
+    upload_res = client.post(
+        f"/api/v1/patients/{patient_id}/scans",
+        headers=owner_headers,
+        data={"modality": "T1", "visit_label": "Baseline"},
+        files={"file": ("owned_scan.nii", io.BytesIO(b"fake nii"), "application/octet-stream")},
+    )
+    job_id = upload_res.json()["id"]
+
+    assert client.get(f"/api/v1/jobs/{job_id}", headers=other_headers).status_code == 404
+    assert client.get(f"/api/v1/predict/{job_id}", headers=other_headers).status_code == 404

@@ -109,7 +109,13 @@ def get_job(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    job = db.query(Job).filter(Job.id == job_id).first()
+    job = (
+        db.query(Job)
+        .join(Scan, Job.scan_id == Scan.id)
+        .join(Patient, Scan.patient_id == Patient.id)
+        .filter(Job.id == job_id, Patient.owner_id == current_user.id)
+        .first()
+    )
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
