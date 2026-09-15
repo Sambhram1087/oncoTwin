@@ -19,11 +19,8 @@ logger = logging.getLogger("oncotwin")
 Base.metadata.create_all(bind=engine)
 
 
-def _upgrade_local_schema():
-    """Add columns introduced after an existing local SQLite database was created."""
-    if engine.dialect.name != "sqlite":
-        return
-
+def _upgrade_schema():
+    """Add columns introduced after tables were first created."""
     columns_by_table = {
         "scans": {"file_size_bytes": "INTEGER"},
         "jobs": {"processing_duration_ms": "INTEGER"},
@@ -39,7 +36,7 @@ def _upgrade_local_schema():
                     )
 
 
-_upgrade_local_schema()
+_upgrade_schema()
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -74,7 +71,12 @@ async def rate_limit_and_logging(request: Request, call_next):
     history.append(start)
     _rate_state[client_ip] = history
 
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("Unhandled exception")
+        response = JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
     duration_ms = round((time.time() - start) * 1000, 2)
     logger.info(f"{request.method} {request.url.path} -> {response.status_code} ({duration_ms}ms)")
     return response
